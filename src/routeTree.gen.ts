@@ -9,17 +9,38 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrendsRouteImport } from './routes/trends'
+import { Route as TodayRouteImport } from './routes/today'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PackRouteImport } from './routes/pack'
 import { Route as OutfitsRouteImport } from './routes/outfits'
 import { Route as GapsRouteImport } from './routes/gaps'
 import { Route as ClosetRouteImport } from './routes/closet'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OutfitsOutfitIdRouteImport } from './routes/outfits.$outfitId'
 import { Route as ApiExplainRouteImport } from './routes/api.explain'
+import { Route as ApiChatRouteImport } from './routes/api.chat'
 
+const TrendsRoute = TrendsRouteImport.update({
+  id: '/trends',
+  path: '/trends',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TodayRoute = TodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PackRoute = PackRouteImport.update({
+  id: '/pack',
+  path: '/pack',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OutfitsRoute = OutfitsRouteImport.update({
@@ -37,6 +58,16 @@ const ClosetRoute = ClosetRouteImport.update({
   path: '/closet',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -52,32 +83,55 @@ const ApiExplainRoute = ApiExplainRouteImport.update({
   path: '/api/explain',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/chat': typeof ChatRoute
   '/closet': typeof ClosetRoute
   '/gaps': typeof GapsRoute
   '/outfits': typeof OutfitsRouteWithChildren
+  '/pack': typeof PackRoute
   '/profile': typeof ProfileRoute
+  '/today': typeof TodayRoute
+  '/trends': typeof TrendsRoute
+  '/api/chat': typeof ApiChatRoute
   '/api/explain': typeof ApiExplainRoute
   '/outfits/$outfitId': typeof OutfitsOutfitIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/chat': typeof ChatRoute
   '/closet': typeof ClosetRoute
   '/gaps': typeof GapsRoute
   '/outfits': typeof OutfitsRouteWithChildren
+  '/pack': typeof PackRoute
   '/profile': typeof ProfileRoute
+  '/today': typeof TodayRoute
+  '/trends': typeof TrendsRoute
+  '/api/chat': typeof ApiChatRoute
   '/api/explain': typeof ApiExplainRoute
   '/outfits/$outfitId': typeof OutfitsOutfitIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
+  '/chat': typeof ChatRoute
   '/closet': typeof ClosetRoute
   '/gaps': typeof GapsRoute
   '/outfits': typeof OutfitsRouteWithChildren
+  '/pack': typeof PackRoute
   '/profile': typeof ProfileRoute
+  '/today': typeof TodayRoute
+  '/trends': typeof TrendsRoute
+  '/api/chat': typeof ApiChatRoute
   '/api/explain': typeof ApiExplainRoute
   '/outfits/$outfitId': typeof OutfitsOutfitIdRoute
 }
@@ -85,48 +139,93 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendar'
+    | '/chat'
     | '/closet'
     | '/gaps'
     | '/outfits'
+    | '/pack'
     | '/profile'
+    | '/today'
+    | '/trends'
+    | '/api/chat'
     | '/api/explain'
     | '/outfits/$outfitId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/calendar'
+    | '/chat'
     | '/closet'
     | '/gaps'
     | '/outfits'
+    | '/pack'
     | '/profile'
+    | '/today'
+    | '/trends'
+    | '/api/chat'
     | '/api/explain'
     | '/outfits/$outfitId'
   id:
     | '__root__'
     | '/'
+    | '/calendar'
+    | '/chat'
     | '/closet'
     | '/gaps'
     | '/outfits'
+    | '/pack'
     | '/profile'
+    | '/today'
+    | '/trends'
+    | '/api/chat'
     | '/api/explain'
     | '/outfits/$outfitId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendarRoute: typeof CalendarRoute
+  ChatRoute: typeof ChatRoute
   ClosetRoute: typeof ClosetRoute
   GapsRoute: typeof GapsRoute
   OutfitsRoute: typeof OutfitsRouteWithChildren
+  PackRoute: typeof PackRoute
   ProfileRoute: typeof ProfileRoute
+  TodayRoute: typeof TodayRoute
+  TrendsRoute: typeof TrendsRoute
+  ApiChatRoute: typeof ApiChatRoute
   ApiExplainRoute: typeof ApiExplainRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/trends': {
+      id: '/trends'
+      path: '/trends'
+      fullPath: '/trends'
+      preLoaderRoute: typeof TrendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/today': {
+      id: '/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pack': {
+      id: '/pack'
+      path: '/pack'
+      fullPath: '/pack'
+      preLoaderRoute: typeof PackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/outfits': {
@@ -150,6 +249,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClosetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -171,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExplainRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -187,10 +307,16 @@ const OutfitsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendarRoute: CalendarRoute,
+  ChatRoute: ChatRoute,
   ClosetRoute: ClosetRoute,
   GapsRoute: GapsRoute,
   OutfitsRoute: OutfitsRouteWithChildren,
+  PackRoute: PackRoute,
   ProfileRoute: ProfileRoute,
+  TodayRoute: TodayRoute,
+  TrendsRoute: TrendsRoute,
+  ApiChatRoute: ApiChatRoute,
   ApiExplainRoute: ApiExplainRoute,
 }
 export const routeTree = rootRouteImport

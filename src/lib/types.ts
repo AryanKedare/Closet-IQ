@@ -37,6 +37,7 @@ export type WardrobeItem = {
   timesWorn: number;
   lastWorn?: string | null;
   createdAt: string;
+  isStored: boolean;
 };
 
 export type UserProfile = {
@@ -62,6 +63,7 @@ export type Outfit = {
   isFavorite: boolean;
   wornCount: number;
   aiExplanation?: string | null;
+  name?: string | null;
   createdAt: string;
 };
 
@@ -72,4 +74,5 @@ export type OutfitHistory = {
   wornDate: string;
   occasion?: string | null;
   notes?: string | null;
+  rating?: number | null;
 };

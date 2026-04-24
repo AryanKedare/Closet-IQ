@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
 import { ColorSwatch } from "@/components/ColorSwatch";
-import { ArrowLeft, CheckCircle2, Sparkles, Bookmark, Heart } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Sparkles, Bookmark, Heart, Pencil, Check } from "lucide-react";
 import { streamExplanation } from "@/lib/groqExplainer";
 import { cn } from "@/lib/utils";
 
@@ -26,15 +26,22 @@ function OutfitDetail() {
   const items = useStore((s) => s.items);
   const profile = useStore((s) => s.profile);
   const setExplanation = useStore((s) => s.setExplanation);
+  const renameOutfit = useStore((s) => s.renameOutfit);
+  const rateWear = useStore((s) => s.rateWear);
   const markWorn = useStore((s) => s.markWorn);
   const toggleSaved = useStore((s) => s.toggleSaved);
   const toggleFavorite = useStore((s) => s.toggleFavorite);
+  const history = useStore((s) => s.history);
 
   const outfit = outfits.find((o) => o.id === outfitId);
 
   const [streaming, setStreaming] = useState(false);
   const [streamed, setStreamed] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(outfit?.name ?? "");
+  const [wornRating, setWornRating] = useState<number | null>(null);
+  const [showRating, setShowRating] = useState(false);
 
   if (!outfit) throw notFound();
 
@@ -98,6 +105,36 @@ function OutfitDetail() {
         >
           <ArrowLeft className="h-4 w-4" /> Outfits
         </Link>
+        {/* Outfit name */}
+        <div className="flex flex-1 items-center justify-center gap-1">
+          {editingName ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                renameOutfit(outfit.id, nameInput.trim());
+                setEditingName(false);
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="Name this outfit…"
+                className="rounded border border-primary bg-card px-2 py-1 text-sm focus:outline-none"
+              />
+              <button type="submit" className="text-primary"><Check className="h-4 w-4" /></button>
+            </form>
+          ) : (
+            <button
+              onClick={() => { setNameInput(outfit.name ?? ""); setEditingName(true); }}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <span className="font-medium">{outfit.name || "Name this outfit"}</span>
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
         <div className="flex gap-1.5">
           <button
             onClick={() => toggleSaved(outfit.id)}
@@ -142,13 +179,47 @@ function OutfitDetail() {
                 <ScoreDots score={outfit.compatibilityScore} className="text-base" />
               </div>
             </div>
-            <button
-              onClick={() => markWorn(outfit.id)}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Mark as worn today
-            </button>
+            {!showRating ? (
+              <button
+                onClick={async () => {
+                  await markWorn(outfit.id);
+                  setShowRating(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Mark as worn today
+              </button>
+            ) : (
+              <div className="flex flex-col items-end gap-2">
+                <p className="text-xs text-muted-foreground">How did it feel?</p>
+                <div className="flex gap-1">
+                  {[1, 2, 3].map((s) => {
+                    const labels = ["Didn't feel it", "Pretty good", "Loved it"];
+                    const latestHistory = history.find((h) => h.outfitId === outfit.id);
+                    return (
+                      <button
+                        key={s}
+                        title={labels[s - 1]}
+                        onClick={() => {
+                          setWornRating(s);
+                          if (latestHistory) rateWear(latestHistory.id, s);
+                        }}
+                        className={cn(
+                          "text-2xl transition-transform hover:scale-110",
+                          wornRating && s <= wornRating ? "text-amber-400" : "text-muted-foreground/30"
+                        )}
+                      >★</button>
+                    );
+                  })}
+                </div>
+                {wornRating && (
+                  <p className="text-[11px] text-primary font-medium">
+                    {["", "Noted — we'll adjust future picks", "Nice one!", "Perfect — more like this"][wornRating]}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* AI explanation */}

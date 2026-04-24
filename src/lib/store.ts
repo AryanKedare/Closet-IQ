@@ -24,6 +24,9 @@ type State = {
   toggleFavorite: (id: string) => Promise<void>;
   markWorn: (outfitId: string, occasion?: string) => Promise<void>;
   setExplanation: (outfitId: string, text: string) => Promise<void>;
+  renameOutfit: (outfitId: string, name: string) => Promise<void>;
+  rateWear: (historyId: string, rating: number) => Promise<void>;
+  toggleStored: (itemId: string) => Promise<void>;
   setTheme: (t: ThemeMode) => void;
   toggleTheme: () => void;
 };
@@ -182,7 +185,8 @@ export const useStore = create<State>((set, get) => ({
     const { items, profile } = get();
     if (!profile) return;
     set({ generating: true });
-    const candidates = generateOutfits(items, profile);
+    const activeItems = items.filter((i) => !i.isStored);
+    const candidates = generateOutfits(activeItems, profile);
 
     // Replace all generated outfits for this user, preserving saved ones.
     await supabase.from("outfits").delete().eq("user_id", USER_ID).eq("is_saved", false);
@@ -272,5 +276,23 @@ export const useStore = create<State>((set, get) => ({
     set({
       outfits: get().outfits.map((x) => (x.id === outfitId ? { ...x, aiExplanation: text } : x)),
     });
+  },
+
+  renameOutfit: async (outfitId, name) => {
+    await supabase.from("outfits").update({ name } as any).eq("id", outfitId);
+    set({ outfits: get().outfits.map((x) => (x.id === outfitId ? { ...x, name } : x)) });
+  },
+
+  rateWear: async (historyId, rating) => {
+    await supabase.from("outfit_history").update({ rating } as any).eq("id", historyId);
+    set({ history: get().history.map((h) => (h.id === historyId ? { ...h, rating } : h)) });
+  },
+
+  toggleStored: async (itemId) => {
+    const item = get().items.find((i) => i.id === itemId);
+    if (!item) return;
+    const next = !item.isStored;
+    await supabase.from("wardrobe_items").update({ is_stored: next } as any).eq("id", itemId);
+    set({ items: get().items.map((i) => (i.id === itemId ? { ...i, isStored: next } : i)) });
   },
 }));

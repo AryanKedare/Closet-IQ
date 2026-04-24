@@ -20,6 +20,7 @@ export function mapWardrobeItem(row: any): WardrobeItem {
     timesWorn: row.times_worn ?? 0,
     lastWorn: row.last_worn,
     createdAt: row.created_at,
+    isStored: row.is_stored ?? false,
   };
 }
 
@@ -49,6 +50,7 @@ export function mapOutfit(row: any): Outfit {
     isFavorite: row.is_favorite ?? false,
     wornCount: row.worn_count ?? 0,
     aiExplanation: row.ai_explanation,
+    name: row.name ?? null,
     createdAt: row.created_at,
   };
 }
@@ -61,5 +63,6 @@ export function mapHistory(row: any): OutfitHistory {
     wornDate: row.worn_date,
     occasion: row.occasion,
     notes: row.notes,
+    rating: row.rating ?? null,
   };
 }

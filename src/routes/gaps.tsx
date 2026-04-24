@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ColorSwatch } from "@/components/ColorSwatch";
 import { generateOutfits } from "@/lib/outfitGenerator";
-import { ShoppingBag, TrendingUp } from "lucide-react";
+import { ShoppingBag, TrendingUp, CheckCircle2, Circle } from "lucide-react";
 import type { WardrobeItem } from "@/lib/types";
 
 export const Route = createFileRoute("/gaps")({ component: GapsPage });
@@ -143,6 +143,16 @@ const RATIONALES: Record<string, string> = {
     "Soft cream tones flatter your warm undertone, and the texture adds depth to the smart-casual rotation for warmer months.",
 };
 
+const CAPSULE_TARGETS = [
+  { category: "shirt",   label: "Shirts",    target: 4, tip: "1 linen, 1 oxford, 1 camp shirt, 1 smart solid" },
+  { category: "tshirt",  label: "T-Shirts",  target: 4, tip: "2 neutral solids, 1 graphic, 1 statement" },
+  { category: "pants",   label: "Trousers",  target: 3, tip: "Navy or grey chinos, casual trouser, 1 statement colour" },
+  { category: "jeans",   label: "Jeans",     target: 3, tip: "Dark slim, casual wash, 1 statement cut" },
+  { category: "shorts",  label: "Shorts",    target: 2, tip: "Neutral + one colour for warmer months" },
+  { category: "jacket",  label: "Outerwear", target: 3, tip: "Leather or denim, 1 layering piece, 1 smart option" },
+  { category: "shoes",   label: "Shoes",     target: 4, tip: "Clean sneaker, loafer/chelsea, tech sneaker, boots" },
+] as const;
+
 function GapsPage() {
   const items = useStore((s) => s.items);
   const profile = useStore((s) => s.profile);
@@ -173,6 +183,14 @@ function GapsPage() {
 
   const expectedCategories = ["shirt", "tshirt", "pants", "jeans", "shoes", "jacket"];
 
+  const capsuleProgress = useMemo(() => {
+    const totalTarget = CAPSULE_TARGETS.reduce((s, t) => s + t.target, 0);
+    const totalOwned = CAPSULE_TARGETS.reduce((s, t) => {
+      return s + Math.min(categoryCounts.get(t.category) ?? 0, t.target);
+    }, 0);
+    return { totalTarget, totalOwned, pct: Math.round((totalOwned / totalTarget) * 100) };
+  }, [categoryCounts]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -182,6 +200,70 @@ function GapsPage() {
           warm medium skin tone.
         </p>
       </div>
+
+      {/* Capsule wardrobe progress */}
+      <section className="card-surface p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Capsule wardrobe</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              A curated 23-piece capsule — the base that unlocks the most combinations.
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold tabular-nums">
+              {capsuleProgress.totalOwned}
+              <span className="text-sm font-normal text-muted-foreground">/{capsuleProgress.totalTarget}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">{capsuleProgress.pct}% complete</p>
+          </div>
+        </div>
+
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${capsuleProgress.pct}%` }}
+          />
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {CAPSULE_TARGETS.map(({ category, label, target, tip }) => {
+            const owned = categoryCounts.get(category) ?? 0;
+            const met = owned >= target;
+            const slots = Array.from({ length: target });
+            return (
+              <div key={category} className="flex items-start gap-3">
+                <div className="mt-0.5 flex-shrink-0">
+                  {met ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground/40" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{label}</span>
+                    <div className="flex gap-0.5">
+                      {slots.map((_, i) => (
+                        <span
+                          key={i}
+                          className={`block h-2 w-4 rounded-sm ${i < owned ? "bg-primary" : "bg-muted"}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {owned}/{target}
+                    </span>
+                  </div>
+                  {!met && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{tip}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="card-surface p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Wardrobe coverage</h2>
@@ -242,6 +324,112 @@ function GapsPage() {
           </p>
         </div>
       )}
+
+      <GapSimulator items={items} profile={profile} />
     </div>
+  );
+}
+
+// ── Interactive gap simulator ─────────────────────────────────────────────────
+const SIM_CATEGORIES = ["shirt", "tshirt", "pants", "jeans", "shorts", "jacket", "shoes"] as const;
+const SIM_COLOR_FAMILIES = [
+  { value: "dark", label: "Dark / Black" },
+  { value: "grey", label: "Grey" },
+  { value: "cream", label: "Cream / White" },
+  { value: "neutral", label: "Neutral / Beige" },
+  { value: "warm-earth", label: "Warm Earth / Olive" },
+  { value: "cool-blue", label: "Cool Blue / Navy" },
+  { value: "warm-pink", label: "Warm Pink / Burgundy" },
+] as const;
+
+function GapSimulator({ items, profile }: { items: WardrobeItem[]; profile: any }) {
+  const [cat, setCat] = useState<string>("pants");
+  const [cf, setCf] = useState<string>("warm-earth");
+
+  const baseline = useMemo(() => (profile ? generateOutfits(items, profile).length : 0), [items, profile]);
+
+  const simResult = useMemo(() => {
+    if (!profile) return null;
+    const fake: WardrobeItem = {
+      id: "__sim__",
+      userId: profile.id,
+      name: `Simulated ${cf} ${cat}`,
+      category: cat as any,
+      primaryColor: { dark: "#111", grey: "#888", cream: "#F5F0E8", neutral: "#C8A97E", "warm-earth": "#7B5B3A", "cool-blue": "#1F2D4A", "warm-pink": "#5A1A2A" }[cf] ?? "#888",
+      colorFamily: cf as any,
+      pattern: "solid",
+      styleTags: ["casual", "smart-casual"],
+      occasionTags: ["casual", "smart-casual"],
+      season: ["spring", "summer", "fall", "winter"],
+      timesWorn: 0,
+      createdAt: new Date().toISOString(),
+      isStored: false,
+    };
+    const newCount = generateOutfits([...items, fake], profile).length;
+    return { unlocked: Math.max(0, newCount - baseline), total: newCount };
+  }, [cat, cf, items, profile, baseline]);
+
+  return (
+    <section className="card-surface p-5">
+      <h2 className="text-lg font-semibold tracking-tight">Gap simulator</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        See exactly how many new outfits any hypothetical item would unlock before you buy it.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Category</label>
+          <select
+            value={cat}
+            onChange={(e) => setCat(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          >
+            {SIM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Colour family</label>
+          <select
+            value={cf}
+            onChange={(e) => setCf(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          >
+            {SIM_COLOR_FAMILIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {simResult && (
+        <div className="mt-4 rounded-lg border border-border bg-surface-elevated p-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="h-10 w-10 flex-shrink-0 rounded-full border border-black/10"
+              style={{ backgroundColor: { dark: "#111", grey: "#888", cream: "#F5F0E8", neutral: "#C8A97E", "warm-earth": "#7B5B3A", "cool-blue": "#1F2D4A", "warm-pink": "#5A1A2A" }[cf] ?? "#888" }}
+            />
+            <div>
+              <p className="font-semibold">
+                {simResult.unlocked > 0
+                  ? `+${simResult.unlocked} new outfits unlocked`
+                  : "No new outfits unlocked"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {simResult.total} total outfits with this item · {baseline} without
+              </p>
+            </div>
+            {simResult.unlocked > 0 && (
+              <div className="ml-auto flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">
+                <TrendingUp className="h-4 w-4" />
+                +{simResult.unlocked}
+              </div>
+            )}
+          </div>
+          {simResult.unlocked === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Your existing wardrobe already covers this colour + category well. Try a different combination.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Archive, ArchiveRestore } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
@@ -16,13 +16,17 @@ type SortKey = "recent" | "most-worn" | "color-family";
 function ClosetPage() {
   const items = useStore((s) => s.items);
   const deleteItem = useStore((s) => s.deleteItem);
+  const toggleStored = useStore((s) => s.toggleStored);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [sort, setSort] = useState<SortKey>("recent");
   const [query, setQuery] = useState("");
+  const [showStored, setShowStored] = useState(false);
+
+  const storedCount = useMemo(() => items.filter((i) => i.isStored).length, [items]);
 
   const filtered = useMemo(() => {
-    let list = items;
+    let list = showStored ? items.filter((i) => i.isStored) : items.filter((i) => !i.isStored);
     if (filter !== "all") list = list.filter((i) => i.category === filter);
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -39,15 +43,34 @@ function ClosetPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Closet</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{items.length} items</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {items.filter((i) => !i.isStored).length} active
+            {storedCount > 0 && ` · ${storedCount} in storage`}
+          </p>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Add item
-        </button>
+        <div className="flex gap-2">
+          {storedCount > 0 && (
+            <button
+              onClick={() => setShowStored(!showStored)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                showStored
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Archive className="h-4 w-4" />
+              {showStored ? "Active" : `Storage (${storedCount})`}
+            </button>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Add item
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -120,22 +143,32 @@ function ClosetPage() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => {
-                  toast(`Delete "${it.name}"?`, {
-                    action: {
-                      label: "Delete",
-                      onClick: () => deleteItem(it.id),
-                    },
-                    cancel: { label: "Cancel", onClick: () => {} },
-                    duration: 5000,
-                  });
-                }}
-                aria-label="Delete"
-                className="mt-3 self-end text-muted-foreground/60 transition-colors hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  onClick={() => toggleStored(it.id)}
+                  aria-label={it.isStored ? "Restore from storage" : "Move to storage"}
+                  title={it.isStored ? "Restore from storage" : "Move to storage"}
+                  className="text-muted-foreground/60 transition-colors hover:text-primary"
+                >
+                  {it.isStored ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                </button>
+                <button
+                  onClick={() => {
+                    toast(`Delete "${it.name}"?`, {
+                      action: {
+                        label: "Delete",
+                        onClick: () => deleteItem(it.id),
+                      },
+                      cancel: { label: "Cancel", onClick: () => {} },
+                      duration: 5000,
+                    });
+                  }}
+                  aria-label="Delete"
+                  className="text-muted-foreground/60 transition-colors hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
