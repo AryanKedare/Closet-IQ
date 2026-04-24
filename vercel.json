@@ -2,14 +2,14 @@
   "version": 2,
   "outputDirectory": "dist/client",
   "functions": {
-    "api/_ssr.js": {
+    "api/ssr.js": {
       "includeFiles": "dist/server/**",
       "maxDuration": 30
     }
   },
   "routes": [
     { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/api/_ssr" }
+    { "src": "/(.*)", "dest": "/api/ssr" }
   ],
   "env": {
     "NODE_ENV": "production"
