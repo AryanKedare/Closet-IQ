@@ -508,8 +508,9 @@ export function generateOutfits(items: WardrobeItem[], profile: UserProfile) {
     }
   }
 
-  // Step 2: sort by score descending
-  allCandidates.sort((a, b) => b.score - a.score);
+  // Step 2: sort by score descending with a small random tiebreaker so each
+  // generation picks a different set from equally-good candidates.
+  allCandidates.sort((a, b) => (b.score - a.score) || (Math.random() - 0.5));
 
   // Step 3: deduplicate — for each (top, bottom, jacket) triple keep only the best shoe combo
   const pairSeen = new Set<string>();

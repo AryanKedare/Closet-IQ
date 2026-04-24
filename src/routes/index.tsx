@@ -3,7 +3,7 @@ import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ColorSwatch } from "@/components/ColorSwatch";
 import { ScoreDots } from "@/components/ScoreDots";
-import { Wand2, Shirt, Sparkles, Bookmark, Calendar } from "lucide-react";
+import { Wand2, Shirt, Sparkles, Bookmark, Calendar, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
@@ -15,14 +15,15 @@ function Dashboard() {
   const profile = useStore((s) => s.profile);
   const generate = useStore((s) => s.generate);
   const generating = useStore((s) => s.generating);
+  const deleteHistory = useStore((s) => s.deleteHistory);
 
   const savedCount = outfits.filter((o) => o.isSaved).length;
   const lastWornDate = history[0]?.wornDate;
 
   const recentlyWorn = history
-    .map((h) => outfits.find((o) => o.id === h.outfitId))
-    .filter(Boolean)
-    .slice(0, 8);
+    .slice(0, 8)
+    .map((h) => ({ historyId: h.id, outfit: outfits.find((o) => o.id === h.outfitId) }))
+    .filter((x) => x.outfit);
 
   return (
     <div className="space-y-8">
@@ -68,20 +69,28 @@ function Dashboard() {
           />
         ) : (
           <div className="scrollbar-hidden -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-            {recentlyWorn.map((o) => {
+            {recentlyWorn.map(({ historyId, outfit: o }) => {
               if (!o) return null;
               return (
-                <Link
-                  key={o.id}
-                  to="/outfits/$outfitId"
-                  params={{ outfitId: o.id }}
-                  className="card-surface w-44 flex-shrink-0 p-3"
-                >
-                  <OutfitMiniSwatches outfit={o} />
-                  <div className="mt-2">
-                    <ScoreDots score={o.compatibilityScore} />
-                  </div>
-                </Link>
+                <div key={historyId} className="relative w-44 flex-shrink-0">
+                  <Link
+                    to="/outfits/$outfitId"
+                    params={{ outfitId: o.id }}
+                    className="card-surface block p-3"
+                  >
+                    <OutfitMiniSwatches outfit={o} />
+                    <div className="mt-2">
+                      <ScoreDots score={o.compatibilityScore} />
+                    </div>
+                  </Link>
+                  <button
+                    onClick={() => deleteHistory(historyId)}
+                    aria-label="Remove from history"
+                    className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               );
             })}
           </div>

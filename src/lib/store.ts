@@ -26,6 +26,7 @@ type State = {
   setExplanation: (outfitId: string, text: string) => Promise<void>;
   renameOutfit: (outfitId: string, name: string) => Promise<void>;
   rateWear: (historyId: string, rating: number) => Promise<void>;
+  deleteHistory: (historyId: string) => Promise<void>;
   toggleStored: (itemId: string) => Promise<void>;
   setTheme: (t: ThemeMode) => void;
   toggleTheme: () => void;
@@ -286,6 +287,11 @@ export const useStore = create<State>((set, get) => ({
   rateWear: async (historyId, rating) => {
     await supabase.from("outfit_history").update({ rating } as any).eq("id", historyId);
     set({ history: get().history.map((h) => (h.id === historyId ? { ...h, rating } : h)) });
+  },
+
+  deleteHistory: async (historyId) => {
+    await supabase.from("outfit_history").delete().eq("id", historyId);
+    set({ history: get().history.filter((h) => h.id !== historyId) });
   },
 
   toggleStored: async (itemId) => {

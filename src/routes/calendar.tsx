@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/calendar")({ component: CalendarPage });
@@ -11,6 +11,7 @@ function CalendarPage() {
   const history = useStore((s) => s.history);
   const outfits = useStore((s) => s.outfits);
   const items = useStore((s) => s.items);
+  const deleteHistory = useStore((s) => s.deleteHistory);
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -153,35 +154,43 @@ function CalendarPage() {
               const o = outfitMap.get(h.outfitId ?? "");
               if (!o) return null;
               return (
-                <Link
-                  key={h.id}
-                  to="/outfits/$outfitId"
-                  params={{ outfitId: o.id }}
-                  className="card-surface flex items-center gap-4 p-3"
-                >
-                  <div className="grid grid-cols-2 gap-0.5 w-14 h-14 flex-shrink-0 rounded overflow-hidden">
-                    {[o.topId, o.bottomId, o.shoesId, o.jacketId].map((id, i) => (
-                      <div key={i} className="overflow-hidden">
-                        <ItemImage item={id ? itemMap.get(id) : null} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {new Date(h.wornDate).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}
-                    </p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {h.occasion ? h.occasion.replace("-", " ") : o.occasionTags[0]?.replace("-", " ") ?? ""}
-                    </p>
-                  </div>
-                  {h.rating && (
-                    <div className="flex gap-0.5">
-                      {[1, 2, 3].map((s) => (
-                        <span key={s} className={cn("text-sm", s <= h.rating! ? "text-amber-400" : "text-muted-foreground/30")}>★</span>
+                <div key={h.id} className="card-surface flex items-center gap-4 p-3">
+                  <Link
+                    to="/outfits/$outfitId"
+                    params={{ outfitId: o.id }}
+                    className="flex flex-1 items-center gap-4 min-w-0"
+                  >
+                    <div className="grid grid-cols-2 gap-0.5 w-14 h-14 flex-shrink-0 rounded overflow-hidden">
+                      {[o.topId, o.bottomId, o.shoesId, o.jacketId].map((id, i) => (
+                        <div key={i} className="overflow-hidden">
+                          <ItemImage item={id ? itemMap.get(id) : null} />
+                        </div>
                       ))}
                     </div>
-                  )}
-                </Link>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">
+                        {new Date(h.wornDate).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {h.occasion ? h.occasion.replace("-", " ") : o.occasionTags[0]?.replace("-", " ") ?? ""}
+                      </p>
+                    </div>
+                    {h.rating && (
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        {[1, 2, 3].map((s) => (
+                          <span key={s} className={cn("text-sm", s <= h.rating! ? "text-amber-400" : "text-muted-foreground/30")}>★</span>
+                        ))}
+                      </div>
+                    )}
+                  </Link>
+                  <button
+                    onClick={() => deleteHistory(h.id)}
+                    aria-label="Delete from history"
+                    className="flex-shrink-0 text-muted-foreground/50 hover:text-destructive transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               );
             })}
           </div>
