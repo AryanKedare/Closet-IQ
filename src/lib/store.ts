@@ -188,7 +188,7 @@ export const useStore = create<State>((set, get) => ({
     await supabase.from("outfits").delete().eq("user_id", USER_ID).eq("is_saved", false);
 
     if (candidates.length > 0) {
-      const rows = candidates.slice(0, 200).map((c) => ({
+      const rows = candidates.map((c) => ({
         user_id: USER_ID,
         top_id: c.topId,
         bottom_id: c.bottomId,

@@ -470,37 +470,35 @@ export function generateOutfits(items: WardrobeItem[], profile: UserProfile) {
   const shoesArr = items.filter((i) => i.category === "shoes");
   const jackets = items.filter((i) => i.category === "jacket");
 
-  const results: Array<{
+  type Candidate = {
     topId: string;
     bottomId: string;
     shoesId: string;
     jacketId: string | null;
     score: number;
     occasionTags: string[];
-  }> = [];
+  };
+
+  // Step 1: score every combination, keep anything ≥ 70
+  const THRESHOLD = 70;
+  const allCandidates: Candidate[] = [];
 
   for (const t of tops) {
     for (const b of bottoms) {
       for (const s of shoesArr) {
         const base = scoreOutfit(t, b, s, null, profile);
-        if (base >= 55) {
-          results.push({
-            topId: t.id,
-            bottomId: b.id,
-            shoesId: s.id,
-            jacketId: null,
+        if (base >= THRESHOLD) {
+          allCandidates.push({
+            topId: t.id, bottomId: b.id, shoesId: s.id, jacketId: null,
             score: base,
             occasionTags: deriveOccasions(t, b, s, null),
           });
         }
         for (const j of jackets) {
           const layered = scoreOutfit(t, b, s, j, profile);
-          if (layered >= 55) {
-            results.push({
-              topId: t.id,
-              bottomId: b.id,
-              shoesId: s.id,
-              jacketId: j.id,
+          if (layered >= THRESHOLD) {
+            allCandidates.push({
+              topId: t.id, bottomId: b.id, shoesId: s.id, jacketId: j.id,
               score: layered,
               occasionTags: deriveOccasions(t, b, s, j),
             });
@@ -510,6 +508,27 @@ export function generateOutfits(items: WardrobeItem[], profile: UserProfile) {
     }
   }
 
-  results.sort((a, b) => b.score - a.score);
-  return results;
+  // Step 2: sort by score descending
+  allCandidates.sort((a, b) => b.score - a.score);
+
+  // Step 3: deduplicate — for each (top, bottom, jacket) triple keep only the best shoe combo
+  const pairSeen = new Set<string>();
+  const dedupedByShoes = allCandidates.filter((c) => {
+    const key = `${c.topId}|${c.bottomId}|${c.jacketId ?? ""}`;
+    if (pairSeen.has(key)) return false;
+    pairSeen.add(key);
+    return true;
+  });
+
+  // Step 4: diversity — max 3 outfits per top item so the feed isn't one-top-dominated
+  const topCount = new Map<string, number>();
+  const diverse = dedupedByShoes.filter((c) => {
+    const n = topCount.get(c.topId) ?? 0;
+    if (n >= 3) return false;
+    topCount.set(c.topId, n + 1);
+    return true;
+  });
+
+  // Step 5: cap at 30 total — curated, not overwhelming
+  return diverse.slice(0, 30);
 }
