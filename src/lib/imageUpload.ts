@@ -1,7 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
-import { USER_ID } from "./constants";
+import { storage, BUCKET_ID, ID, ENDPOINT, PROJECT_ID } from "@/integrations/appwrite/client";
 
-// Compress an image file client-side: max 800px on the longest edge, encoded as WebP.
 async function compressToWebp(file: File): Promise<Blob> {
   const dataUrl: string = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -39,11 +37,13 @@ async function compressToWebp(file: File): Promise<Blob> {
 
 export async function uploadWardrobeImage(file: File, itemId: string): Promise<string> {
   const blob = await compressToWebp(file);
-  const path = `${USER_ID}/${itemId}.webp`;
-  const { error } = await supabase.storage
-    .from("wardrobe-images")
-    .upload(path, blob, { contentType: "image/webp", upsert: true });
-  if (error) throw error;
-  const { data } = supabase.storage.from("wardrobe-images").getPublicUrl(path);
-  return data.publicUrl;
+  const fileObj = new File([blob], `${itemId}.webp`, { type: "image/webp" });
+
+  // Delete existing file first (upsert equivalent)
+  try {
+    await storage.deleteFile(BUCKET_ID, itemId);
+  } catch {}
+
+  await storage.createFile(BUCKET_ID, itemId, fileObj);
+  return `${ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${itemId}/view?project=${PROJECT_ID}`;
 }

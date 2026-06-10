@@ -1,9 +1,9 @@
 import type { WardrobeItem, UserProfile, Outfit, OutfitHistory, Category, ColorFamily, Pattern } from "./types";
 
-// DB row -> app type
+// DB row -> app type (supports both Supabase row.id and Appwrite row.$id)
 export function mapWardrobeItem(row: any): WardrobeItem {
   return {
-    id: row.id,
+    id: row.$id ?? row.id,
     userId: row.user_id,
     name: row.name,
     category: row.category as Category,
@@ -19,14 +19,14 @@ export function mapWardrobeItem(row: any): WardrobeItem {
     imageUrl: row.image_url,
     timesWorn: row.times_worn ?? 0,
     lastWorn: row.last_worn,
-    createdAt: row.created_at,
+    createdAt: row.$createdAt ?? row.created_at,
     isStored: row.is_stored ?? false,
   };
 }
 
 export function mapProfile(row: any): UserProfile {
   return {
-    id: row.id,
+    id: row.$id ?? row.id,
     displayName: row.display_name,
     skinToneHex: row.skin_tone_hex,
     eyeColorHex: row.eye_color_hex,
@@ -38,7 +38,7 @@ export function mapProfile(row: any): UserProfile {
 
 export function mapOutfit(row: any): Outfit {
   return {
-    id: row.id,
+    id: row.$id ?? row.id,
     userId: row.user_id,
     topId: row.top_id,
     bottomId: row.bottom_id,
@@ -51,13 +51,13 @@ export function mapOutfit(row: any): Outfit {
     wornCount: row.worn_count ?? 0,
     aiExplanation: row.ai_explanation,
     name: row.name ?? null,
-    createdAt: row.created_at,
+    createdAt: row.$createdAt ?? row.created_at,
   };
 }
 
 export function mapHistory(row: any): OutfitHistory {
   return {
-    id: row.id,
+    id: row.$id ?? row.id,
     userId: row.user_id,
     outfitId: row.outfit_id,
     wornDate: row.worn_date,
