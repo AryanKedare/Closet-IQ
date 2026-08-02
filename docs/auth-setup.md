@@ -2,12 +2,13 @@
 
 ## 1. Apply the database migrations
 
-Run both authentication migrations in order:
+Run the authentication migrations in order:
 
 - `supabase/migrations/20260802193000_add_auth_and_rls.sql`
 - `supabase/migrations/20260802213000_add_profile_onboarding.sql`
+- `supabase/migrations/20260802214500_add_account_deletion.sql`
 
-They enable row-level security, create account-scoped policies, provision profiles, require new users to complete onboarding, and scope wardrobe images to a user-specific folder.
+They enable row-level security, create account-scoped policies, provision profiles, require new users to complete onboarding, scope wardrobe images to a user-specific folder, and add the authenticated account-deletion function.
 
 ## 2. Enable email/password authentication
 
@@ -62,7 +63,22 @@ New email/password and Google users receive an incomplete profile containing onl
 
 The application stores those values and sets `onboarding_completed = true`. Existing profiles are marked complete when the onboarding migration runs, so current users are not forced to repeat setup.
 
-## 5. Vercel environment variables
+## 5. Account deletion
+
+The protected `/delete-account` page requires the user to type `DELETE` before the destructive action is enabled.
+
+Deletion happens in this order:
+
+1. All objects under `wardrobe-images/<authenticated-user-id>/` are listed and removed through the Supabase Storage API.
+2. The client calls `public.delete_my_account()` without supplying a user ID.
+3. The security-definer function resolves the caller with `auth.uid()`.
+4. It deletes the caller's outfit history, outfits, wardrobe items, and profile.
+5. It deletes the caller's `auth.users` row in the same database transaction.
+6. The browser clears its local session and returns to `/login`.
+
+If Storage deletion fails, the database and Auth deletion are not started. This prevents an account from being removed while its image objects remain behind.
+
+## 6. Vercel environment variables
 
 Keep these configured for Production and Preview:
 
@@ -70,9 +86,9 @@ Keep these configured for Production and Preview:
 - `VITE_SUPABASE_PUBLISHABLE_KEY` or `VITE_SUPABASE_ANON_KEY`
 - `GROQ_API_KEY`
 
-The Supabase publishable/anon key is intended for browser use. Data protection comes from the RLS policies in the migration.
+The Supabase publishable/anon key is intended for browser use. Data protection comes from the RLS policies and database functions in the migrations.
 
-## 6. Existing development data
+## 7. Existing development data
 
 The old application used the shared UUID:
 
@@ -80,7 +96,7 @@ The old application used the shared UUID:
 
 New accounts will not see that data because all queries now use the authenticated Supabase user ID. Migrate old rows to a real auth user manually only when that ownership is known.
 
-## 7. Verification checklist
+## 8. Verification checklist
 
 1. Create a new account and confirm onboarding appears before the dashboard.
 2. Confirm setup cannot finish without at least one style preference.
@@ -89,5 +105,8 @@ New accounts will not see that data because all queries now use the authenticate
 5. Open the reset link and confirm a new password can be saved.
 6. Create account B and confirm account A's wardrobe is not visible.
 7. Sign in with Google and confirm onboarding is required.
-8. Upload an image and confirm its storage path starts with the authenticated user ID.
-9. Open a protected URL while signed out and confirm it redirects to `/login`.
+8. Upload multiple wardrobe images and confirm their paths start with the authenticated user ID.
+9. Open `/delete-account`, confirm the delete button remains disabled until `DELETE` is entered, and delete a test account.
+10. Confirm the deleted user's rows are absent from `user_profile`, `wardrobe_items`, `outfits`, and `outfit_history`.
+11. Confirm the deleted user's folder is empty in the `wardrobe-images` bucket.
+12. Confirm the user is absent from Supabase Authentication and can no longer sign in.
