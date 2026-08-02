@@ -15,11 +15,11 @@ import {
   MoreHorizontal,
   X,
   LogOut,
-  Trash2,
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { resolveAccountDisplayName } from "@/lib/accountDisplayName";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -39,18 +39,24 @@ const SECONDARY_NAV: NavItem[] = [
   { to: "/trends", label: "Trends", icon: TrendingUp },
   { to: "/gaps", label: "Gaps", icon: ShoppingBag },
   { to: "/profile", label: "Profile", icon: User },
-  { to: "/delete-account", label: "Delete account", icon: Trash2 },
 ];
 
 const ALL_NAV = [...PRIMARY_NAV, ...SECONDARY_NAV];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const loc = useLocation();
-  const theme = useStore((s) => s.theme);
-  const toggleTheme = useStore((s) => s.toggleTheme);
+  const location = useLocation();
+  const theme = useStore((state) => state.theme);
+  const toggleTheme = useStore((state) => state.toggleTheme);
+  const profileDisplayName = useStore((state) => state.profile?.displayName);
   const { user, signOut } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  const displayName = resolveAccountDisplayName({
+    profileDisplayName,
+    userMetadata: user?.user_metadata,
+    email: user?.email,
+  });
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -74,32 +80,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <nav className="hidden items-center gap-0.5 overflow-x-auto md:flex">
-            {ALL_NAV.map((n) => {
-              const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
+            {ALL_NAV.map((item) => {
+              const active = item.exact
+                ? location.pathname === item.to
+                : location.pathname.startsWith(item.to);
               return (
                 <Link
-                  key={n.to}
-                  to={n.to as never}
+                  key={item.to}
+                  to={item.to as never}
                   className={cn(
                     "flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                     active
                       ? "bg-primary/10 text-primary"
-                      : n.to === "/delete-account"
-                        ? "text-destructive hover:bg-destructive/10"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <n.icon className="h-3.5 w-3.5" />
-                  {n.label}
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
                 </Link>
               );
             })}
           </nav>
 
           <div className="flex items-center gap-1.5">
-            <span className="hidden max-w-36 truncate text-xs text-muted-foreground lg:block">
-              {user?.email}
-            </span>
+            <Link
+              to="/profile"
+              title={user?.email ?? displayName}
+              className="hidden max-w-40 truncate rounded-md px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-muted lg:block"
+            >
+              {displayName}
+            </Link>
             <button
               onClick={toggleTheme}
               aria-label="Toggle theme"
@@ -126,19 +136,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-md items-center justify-between px-1 py-1">
-          {PRIMARY_NAV.map((n) => {
-            const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
+          {PRIMARY_NAV.map((item) => {
+            const active = item.exact
+              ? location.pathname === item.to
+              : location.pathname.startsWith(item.to);
             return (
               <Link
-                key={n.to}
-                to={n.to as never}
+                key={item.to}
+                to={item.to as never}
                 className={cn(
                   "flex flex-1 flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] font-medium transition-colors",
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <n.icon className="h-5 w-5" />
-                {n.label}
+                <item.icon className="h-5 w-5" />
+                {item.label}
               </Link>
             );
           })}
@@ -146,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMoreOpen(true)}
             className={cn(
               "flex flex-1 flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] font-medium transition-colors",
-              SECONDARY_NAV.some((n) => loc.pathname.startsWith(n.to))
+              SECONDARY_NAV.some((item) => location.pathname.startsWith(item.to))
                 ? "text-primary"
                 : "text-muted-foreground",
             )}
@@ -159,36 +171,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {moreOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMoreOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setMoreOpen(false)}
+          />
           <div className="absolute inset-x-0 bottom-0 rounded-t-2xl border-t border-border bg-surface p-4 pb-8">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold">More</p>
-                <p className="max-w-56 truncate text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-sm font-semibold">{displayName}</p>
+                {user?.email && (
+                  <p className="max-w-56 truncate text-xs text-muted-foreground">{user.email}</p>
+                )}
               </div>
               <button onClick={() => setMoreOpen(false)} className="text-muted-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {SECONDARY_NAV.map((n) => {
-                const active = n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
+              {SECONDARY_NAV.map((item) => {
+                const active = item.exact
+                  ? location.pathname === item.to
+                  : location.pathname.startsWith(item.to);
                 return (
                   <Link
-                    key={n.to}
-                    to={n.to as never}
+                    key={item.to}
+                    to={item.to as never}
                     onClick={() => setMoreOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
                       active
                         ? "border-primary/40 bg-primary/5 text-primary"
-                        : n.to === "/delete-account"
-                          ? "border-destructive/30 bg-destructive/5 text-destructive"
-                          : "border-border bg-card text-foreground",
+                        : "border-border bg-card text-foreground",
                     )}
                   >
-                    <n.icon className="h-5 w-5 flex-shrink-0" />
-                    {n.label}
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    {item.label}
                   </Link>
                 );
               })}
