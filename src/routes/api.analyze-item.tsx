@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { normalizeWardrobeItemAnalysis } from "@/lib/itemAnalysisSchema";
+import { groqVisionErrorMessage, resolveGroqVisionModel } from "@/lib/visionModel";
 import {
   CATEGORIES,
   COLOR_FAMILIES,
@@ -84,11 +85,7 @@ export const Route = createFileRoute("/api/analyze-item")({
 
           const body = await request.json().catch(() => null) as { image?: unknown } | null;
           const image = typeof body?.image === "string" ? body.image : "";
-          if (
-            !image ||
-            image.length > MAX_IMAGE_CHARACTERS ||
-            !IMAGE_DATA_URL_RE.test(image)
-          ) {
+          if (!image || image.length > MAX_IMAGE_CHARACTERS || !IMAGE_DATA_URL_RE.test(image)) {
             return jsonResponse({ error: "A valid compressed clothing image is required." }, 400);
           }
 
@@ -100,7 +97,7 @@ export const Route = createFileRoute("/api/analyze-item")({
             );
           }
 
-          const model = process.env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+          const model = resolveGroqVisionModel(process.env.GROQ_VISION_MODEL);
           const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -126,10 +123,14 @@ export const Route = createFileRoute("/api/analyze-item")({
 
           if (!groqResponse.ok) {
             const upstream = await groqResponse.text();
-            console.error("Groq item analysis failed", groqResponse.status, upstream);
+            console.error("Groq item analysis failed", {
+              status: groqResponse.status,
+              model,
+              upstream,
+            });
             return jsonResponse(
-              { error: "The AI could not analyze this image. Try a clearer photo." },
-              groqResponse.status >= 400 && groqResponse.status < 500 ? 422 : 502,
+              { error: groqVisionErrorMessage(groqResponse.status, upstream) },
+              groqResponse.status === 429 ? 429 : 502,
             );
           }
 
@@ -145,7 +146,8 @@ export const Route = createFileRoute("/api/analyze-item")({
           try {
             parsed = JSON.parse(content);
           } catch {
-            return jsonResponse({ error: "The AI returned an invalid analysis." }, 502);
+            console.error("Groq returned non-JSON item analysis", { model, content });
+            return jsonResponse({ error: "The AI returned an invalid analysis. Try again." }, 502);
           }
 
           return jsonResponse({ analysis: normalizeWardrobeItemAnalysis(parsed) });
