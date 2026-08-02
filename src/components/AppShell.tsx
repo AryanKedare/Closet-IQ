@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
   X,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useStore } from "@/lib/store";
@@ -38,6 +39,7 @@ const SECONDARY_NAV: NavItem[] = [
   { to: "/trends", label: "Trends", icon: TrendingUp },
   { to: "/gaps", label: "Gaps", icon: ShoppingBag },
   { to: "/profile", label: "Profile", icon: User },
+  { to: "/delete-account", label: "Delete account", icon: Trash2 },
 ];
 
 const ALL_NAV = [...PRIMARY_NAV, ...SECONDARY_NAV];
@@ -82,7 +84,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     "flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                     active
                       ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      : n.to === "/delete-account"
+                        ? "text-destructive hover:bg-destructive/10"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <n.icon className="h-3.5 w-3.5" />
@@ -178,10 +182,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
                       active
                         ? "border-primary/40 bg-primary/5 text-primary"
-                        : "border-border bg-card text-foreground",
+                        : n.to === "/delete-account"
+                          ? "border-destructive/30 bg-destructive/5 text-destructive"
+                          : "border-border bg-card text-foreground",
                     )}
                   >
-                    <n.icon className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                    <n.icon className="h-5 w-5 flex-shrink-0" />
                     {n.label}
                   </Link>
                 );
