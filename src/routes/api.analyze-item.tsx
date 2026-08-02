@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { normalizeWardrobeItemAnalysis } from "@/lib/itemAnalysisSchema";
-import { groqVisionErrorMessage, resolveGroqVisionModel } from "@/lib/visionModel";
+import {
+  extractJsonObject,
+  groqVisionErrorMessage,
+  resolveGroqVisionModel,
+} from "@/lib/visionModel";
 import {
   CATEGORIES,
   COLOR_FAMILIES,
@@ -12,6 +16,7 @@ import {
 
 const MAX_IMAGE_CHARACTERS = 4_000_000;
 const IMAGE_DATA_URL_RE = /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -74,6 +79,49 @@ Rules:
 - Output valid JSON only, with no markdown or explanation.`;
 }
 
+type GroqPayload = {
+  choices?: Array<{ message?: { content?: string } }>;
+};
+
+async function callGroq(args: {
+  apiKey: string;
+  model: string;
+  image: string;
+  jsonMode: boolean;
+}): Promise<{ response: Response; body: string }> {
+  const requestBody: Record<string, unknown> = {
+    model: args.model,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: analysisPrompt() },
+          { type: "image_url", image_url: { url: args.image } },
+        ],
+      },
+    ],
+    temperature: 0.1,
+    max_completion_tokens: 700,
+    reasoning_effort: "none",
+    reasoning_format: "hidden",
+  };
+
+  if (args.jsonMode) {
+    requestBody.response_format = { type: "json_object" };
+  }
+
+  const response = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  return { response, body: await response.text() };
+}
+
 export const Route = createFileRoute("/api/analyze-item")({
   server: {
     handlers: {
@@ -98,45 +146,42 @@ export const Route = createFileRoute("/api/analyze-item")({
           }
 
           const model = resolveGroqVisionModel(process.env.GROQ_VISION_MODEL);
-          const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: analysisPrompt() },
-                    { type: "image_url", image_url: { url: image } },
-                  ],
-                },
-              ],
-              response_format: { type: "json_object" },
-              temperature: 0.1,
-              max_completion_tokens: 700,
-            }),
-          });
+          const firstAttempt = await callGroq({ apiKey, model, image, jsonMode: true });
+          let finalAttempt = firstAttempt;
 
-          if (!groqResponse.ok) {
-            const upstream = await groqResponse.text();
-            console.error("Groq item analysis failed", {
-              status: groqResponse.status,
+          if (!firstAttempt.response.ok && firstAttempt.response.status === 400) {
+            console.warn("Groq JSON-mode vision attempt failed; retrying without response_format", {
+              status: firstAttempt.response.status,
               model,
-              upstream,
+              upstream: firstAttempt.body,
+            });
+            finalAttempt = await callGroq({ apiKey, model, image, jsonMode: false });
+          }
+
+          if (!finalAttempt.response.ok) {
+            console.error("Groq item analysis failed", {
+              status: finalAttempt.response.status,
+              model,
+              firstAttempt: firstAttempt.body,
+              finalAttempt: finalAttempt.body,
             });
             return jsonResponse(
-              { error: groqVisionErrorMessage(groqResponse.status, upstream) },
-              groqResponse.status === 429 ? 429 : 502,
+              { error: groqVisionErrorMessage(finalAttempt.response.status, finalAttempt.body) },
+              finalAttempt.response.status === 429 ? 429 : 502,
             );
           }
 
-          const payload = await groqResponse.json() as {
-            choices?: Array<{ message?: { content?: string } }>;
-          };
+          let payload: GroqPayload;
+          try {
+            payload = JSON.parse(finalAttempt.body) as GroqPayload;
+          } catch {
+            console.error("Groq returned an invalid HTTP JSON body", {
+              model,
+              body: finalAttempt.body,
+            });
+            return jsonResponse({ error: "Groq returned an invalid response envelope." }, 502);
+          }
+
           const content = payload.choices?.[0]?.message?.content;
           if (!content) {
             return jsonResponse({ error: "The AI returned an empty analysis." }, 502);
@@ -144,7 +189,7 @@ export const Route = createFileRoute("/api/analyze-item")({
 
           let parsed: unknown;
           try {
-            parsed = JSON.parse(content);
+            parsed = extractJsonObject(content);
           } catch {
             console.error("Groq returned non-JSON item analysis", { model, content });
             return jsonResponse({ error: "The AI returned an invalid analysis. Try again." }, 502);
