@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import type { WardrobeItemAnalysis } from "./itemAnalysisSchema";
 
 const MAX_SOURCE_BYTES = 15 * 1024 * 1024;
@@ -42,10 +43,18 @@ export async function analyzeWardrobeItem(
   file: File,
   signal?: AbortSignal,
 ): Promise<WardrobeItemAnalysis> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in before using AI item analysis.");
+
   const image = await fileToAnalysisDataUrl(file);
   const response = await fetch("/api/analyze-item", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ image }),
     signal,
   });
