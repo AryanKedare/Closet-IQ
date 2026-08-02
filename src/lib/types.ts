@@ -1,3 +1,13 @@
+import type {
+  BodyDetails,
+  ContrastLevel,
+  EyeColor,
+  HairColor,
+  PersonalColorAnswers,
+  SkinTone,
+  SkinUndertone,
+} from "./personalColor";
+
 export type Category =
   | "shirt"
   | "tshirt"
@@ -49,7 +59,16 @@ export type UserProfile = {
   skinToneType: string;
   stylePreferences: string[];
   onboardingCompleted: boolean;
+  skinTone: SkinTone | null;
+  skinUndertone: SkinUndertone | null;
+  hairColor: HairColor | null;
+  eyeColor: EyeColor | null;
+  contrastLevel: ContrastLevel | null;
+  recommendedPalette: string[];
+  bodyDetails: BodyDetails;
 };
+
+export type UserProfileUpdate = Partial<UserProfile> & Partial<PersonalColorAnswers>;
 
 export type Outfit = {
   id: string;
