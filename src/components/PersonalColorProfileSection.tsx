@@ -40,24 +40,24 @@ export function PersonalColorProfileSection() {
   useEffect(() => {
     if (!profile) return;
     setAnswers({
-      skinTone: profile.skinTone,
-      skinUndertone: profile.skinUndertone,
-      hairColor: profile.hairColor,
-      eyeColor: profile.eyeColor,
-      contrastLevel: profile.contrastLevel,
+      skinTone: profile.skinTone ?? null,
+      skinUndertone: profile.skinUndertone ?? null,
+      hairColor: profile.hairColor ?? null,
+      eyeColor: profile.eyeColor ?? null,
+      contrastLevel: profile.contrastLevel ?? null,
     });
-    setBodyDetails(profile.bodyDetails);
+    setBodyDetails(profile.bodyDetails ?? EMPTY_BODY);
   }, [profile]);
 
   const dirty = useMemo(() => {
     if (!profile) return false;
     return JSON.stringify(answers) !== JSON.stringify({
-      skinTone: profile.skinTone,
-      skinUndertone: profile.skinUndertone,
-      hairColor: profile.hairColor,
-      eyeColor: profile.eyeColor,
-      contrastLevel: profile.contrastLevel,
-    }) || JSON.stringify(bodyDetails) !== JSON.stringify(profile.bodyDetails);
+      skinTone: profile.skinTone ?? null,
+      skinUndertone: profile.skinUndertone ?? null,
+      hairColor: profile.hairColor ?? null,
+      eyeColor: profile.eyeColor ?? null,
+      contrastLevel: profile.contrastLevel ?? null,
+    }) || JSON.stringify(bodyDetails) !== JSON.stringify(profile.bodyDetails ?? EMPTY_BODY);
   }, [answers, bodyDetails, profile]);
 
   async function save() {
