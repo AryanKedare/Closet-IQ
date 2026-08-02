@@ -1,6 +1,25 @@
 # ClosetIQ authentication setup
 
-## 1. Choose the correct SQL file
+## 1. Database layout
+
+ClosetIQ uses normal shared PostgreSQL tables:
+
+- `public.user_profile`
+- `public.wardrobe_items`
+- `public.outfits`
+- `public.outfit_history`
+
+Rows are stored directly in those tables. There is no table path such as `wardrobe_items/<user-id>`.
+
+User isolation is provided by the `user_id` column together with row-level security. For example, every wardrobe item remains a direct row in `public.wardrobe_items`, and authenticated users can only read or modify rows where:
+
+```sql
+user_id = auth.uid()
+```
+
+The only `<user-id>/...` path mentioned in this setup refers to object names inside the separate Supabase Storage bucket used for image files. It does not refer to database tables.
+
+## 2. Choose the correct SQL file
 
 ### Brand-new Supabase project
 
@@ -37,7 +56,7 @@ The final result includes:
 
 Do not run both files on the same new project. Choose the file that matches the database state.
 
-## 2. Running the SQL
+## 3. Running the SQL
 
 1. Open **Supabase Dashboard → SQL Editor**.
 2. Choose **New query**.
@@ -45,7 +64,7 @@ Do not run both files on the same new project. Choose the file that matches the 
 4. Run it.
 5. Review the final verification result.
 
-## 3. Enable email/password authentication
+## 4. Enable email/password authentication
 
 In Supabase Dashboard:
 
@@ -59,7 +78,7 @@ Recommended local redirects:
 - `http://localhost:3000/**`
 - `http://localhost:3000/reset-password`
 
-## 4. Enable Google OAuth
+## 5. Enable Google OAuth
 
 In Google Cloud Console:
 
@@ -73,7 +92,7 @@ The callback normally looks like:
 
 Enable Google in Supabase and paste the Google Client ID and Client Secret there. Do not expose the Client Secret in frontend or Vercel environment variables.
 
-## 5. New-user onboarding
+## 6. New-user onboarding
 
 New email/password and Google users receive an incomplete profile containing only their display name. Before accessing the app, they must provide:
 
@@ -84,20 +103,27 @@ New email/password and Google users receive an incomplete profile containing onl
 
 The app then sets `onboarding_completed = true`.
 
-## 6. Account deletion
+## 7. Account deletion
+
+Database deletion works directly against the shared tables using the authenticated UUID:
+
+```sql
+delete from public.wardrobe_items where user_id = auth.uid();
+```
 
 The protected `/delete-account` page requires the user to type `DELETE`.
 
 Deletion order:
 
-1. Remove every object under `wardrobe-images/<authenticated-user-id>/`.
+1. Remove the user's image objects from the separate `wardrobe-images` Storage bucket.
 2. Call `public.delete_my_account()` with no user ID argument.
-3. The function uses `auth.uid()` and deletes outfit history, outfits, wardrobe items, the profile, and the Auth account in one transaction.
-4. Clear the browser session and return to `/login`.
+3. The function uses `auth.uid()` and deletes matching rows directly from `outfit_history`, `outfits`, `wardrobe_items`, and `user_profile`.
+4. It deletes the Auth account in the same transaction.
+5. The browser session is cleared and the user returns to `/login`.
 
 If Storage deletion fails, database and Auth deletion do not start.
 
-## 7. Vercel environment variables
+## 8. Vercel environment variables
 
 Configure these for Preview and Production:
 
@@ -105,7 +131,7 @@ Configure these for Preview and Production:
 - `VITE_SUPABASE_PUBLISHABLE_KEY` or `VITE_SUPABASE_ANON_KEY`
 - `GROQ_API_KEY`
 
-## 8. Existing data ownership
+## 9. Existing data ownership
 
 The `user_id` column visible in the existing tables must match an actual UUID in **Supabase Authentication → Users**.
 
@@ -114,15 +140,16 @@ After running `supabase/upgrade-existing.sql`, check `orphaned_user_rows`:
 - `0`: current rows are linked to Auth users.
 - Greater than `0`: some rows use an old or shared UUID. Reassign those rows to the intended Auth user before relying on RLS.
 
-## 9. Verification checklist
+## 10. Verification checklist
 
 1. Run the correct SQL file.
-2. Confirm `orphaned_user_rows = 0` for an existing database.
-3. Create a new email account and confirm onboarding appears.
-4. Complete onboarding and confirm the profile values persist.
-5. Sign out and test password recovery.
-6. Sign in with Google and confirm onboarding appears.
-7. Create two users and confirm they cannot see each other's data.
-8. Upload an image and confirm its path begins with the Auth user ID.
-9. Delete a disposable account containing items, outfits, history, and images.
-10. Confirm its Storage folder, public-table rows, and Auth user are all gone.
+2. Confirm existing wardrobe rows remain directly in `public.wardrobe_items`.
+3. Confirm `orphaned_user_rows = 0` for an existing database.
+4. Create a new email account and confirm onboarding appears.
+5. Complete onboarding and confirm the profile values persist.
+6. Sign out and test password recovery.
+7. Sign in with Google and confirm onboarding appears.
+8. Create two users and confirm they cannot see each other's table rows.
+9. Upload an image and verify it appears in the Storage bucket, separately from the database row.
+10. Delete a disposable account containing items, outfits, history, and images.
+11. Confirm its Storage objects, public-table rows, and Auth user are all gone.
