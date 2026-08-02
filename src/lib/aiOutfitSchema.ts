@@ -1,5 +1,3 @@
-import { OCCASION_TAGS } from "./constants";
-
 export type AiOutfitCandidate = {
   key: string;
   topId: string;
@@ -24,8 +22,14 @@ function cleanText(value: unknown, fallback: string, maxLength: number): string 
 
 function cleanOccasions(value: unknown, fallback: string[]): string[] {
   if (!Array.isArray(value)) return fallback;
-  const allowed = new Set<string>(OCCASION_TAGS);
-  const filtered = [...new Set(value.filter((tag): tag is string => typeof tag === "string" && allowed.has(tag)))];
+  const allowed = new Set(fallback);
+  const filtered = [
+    ...new Set(
+      value.filter(
+        (tag): tag is string => typeof tag === "string" && allowed.has(tag),
+      ),
+    ),
+  ];
   return filtered.length > 0 ? filtered.slice(0, 5) : fallback;
 }
 
