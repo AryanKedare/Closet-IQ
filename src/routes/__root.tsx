@@ -1,8 +1,17 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import {
+  Outlet,
+  Link,
+  createRootRoute,
+  HeadContent,
+  Scripts,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { AppShell } from "@/components/AppShell";
+import { AuthProvider, useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 
 function NotFoundComponent() {
@@ -38,9 +47,6 @@ export const Route = createRootRoute({
         content:
           "ClosetIQ generates every valid outfit pairing using color harmony, layering rules, and skin-tone awareness.",
       },
-      { property: "og:title", content: "ClosetIQ" },
-      { property: "og:description", content: "Wardrobe management with a mathematical combination engine." },
-      { property: "og:type", content: "website" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
@@ -56,7 +62,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <Scripts />
       </body>
     </html>
@@ -64,14 +70,37 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const loadAll = useStore((s) => s.loadAll);
-  const loading = useStore((s) => s.loading);
+  const dataLoading = useStore((s) => s.loading);
   const profile = useStore((s) => s.profile);
+  const isLoginRoute = location.pathname === "/login";
 
   useEffect(() => {
-    // Only load when there's no profile AND we're not already loading.
-    if (!profile && !loading) loadAll();
-  }, [loadAll, profile, loading]);
+    if (authLoading) return;
+    if (!user && !isLoginRoute) {
+      void navigate({ to: "/login", replace: true });
+    } else if (user && isLoginRoute) {
+      void navigate({ to: "/", replace: true });
+    }
+  }, [authLoading, user, isLoginRoute, navigate]);
+
+  useEffect(() => {
+    if (user && !profile && !dataLoading) void loadAll();
+  }, [user, profile, dataLoading, loadAll]);
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading ClosetIQ…
+      </div>
+    );
+  }
+
+  if (isLoginRoute) return <Outlet />;
+  if (!user) return null;
 
   return (
     <AppShell>
