@@ -290,8 +290,9 @@ function OutfitDetail() {
 
               {!showExplanation && (
                 <button
+                  type="button"
                   onClick={handleExplain}
-                  disabled={streaming || !profile || !top || !bottom || !shoes}
+                  disabled={streaming}
                   className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
                 >
                   {streaming ? "Thinking…" : "Generate explanation"}
