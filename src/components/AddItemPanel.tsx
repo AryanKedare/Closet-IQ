@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Upload } from "lucide-react";
+import { X, Upload, Camera, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import {
@@ -103,6 +103,11 @@ export function AddItemPanel({ open, onClose }: { open: boolean; onClose: () => 
     return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
   }
 
+  function clearPhoto() {
+    setFile(null);
+    setPreview(null);
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -132,28 +137,87 @@ export function AddItemPanel({ open, onClose }: { open: boolean; onClose: () => 
         </header>
 
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
-          {/* Image upload */}
+          {/* Photo section */}
           <div>
             <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Photo
             </label>
-            <label className="card-surface flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden">
-              {preview ? (
-                <img src={preview} alt="preview" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Upload className="h-6 w-6" />
-                  <span className="text-sm">Tap to upload</span>
-                  <span className="text-xs">Compressed to 800px WebP</span>
+
+            {preview ? (
+              /* Preview with retake / clear overlay */
+              <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border">
+                <img
+                  src={preview}
+                  alt="Clothing item preview"
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-black/60 to-transparent p-3">
+                  {/* Retake via camera */}
+                  <label className="flex cursor-pointer items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm hover:bg-white/30">
+                    <Camera className="h-3.5 w-3.5" />
+                    Retake
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  {/* Replace from gallery */}
+                  <label className="flex cursor-pointer items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm hover:bg-white/30">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Replace
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  {/* Clear */}
+                  <button
+                    type="button"
+                    onClick={clearPhoto}
+                    aria-label="Remove photo"
+                    className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm hover:bg-white/30"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
                 </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
+              </div>
+            ) : (
+              /* Empty state — Camera + Upload side by side */
+              <div className="grid grid-cols-2 gap-3">
+                {/* Take photo with rear camera */}
+                <label className="card-surface flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl py-8 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                  <Camera className="h-7 w-7" />
+                  <span className="text-sm font-medium">Take Photo</span>
+                  <span className="text-xs opacity-60">Opens camera</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+
+                {/* Upload from gallery */}
+                <label className="card-surface flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl py-8 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                  <Upload className="h-7 w-7" />
+                  <span className="text-sm font-medium">Upload</span>
+                  <span className="text-xs opacity-60">From gallery</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
           <Field label="Name">
