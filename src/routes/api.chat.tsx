@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const MAX_MSG = 300;
+const MAX_MSG     = 300;
 const MAX_HISTORY = 8;
 
 function sanitize(s: unknown): string {
@@ -14,8 +14,11 @@ export const Route = createFileRoute("/api/chat")({
       POST: async ({ request }) => {
         try {
           const raw = await request.json() as any;
-          const message = sanitize(raw?.message);
-          const wardrobeContext = sanitize(raw?.wardrobeContext);
+          const message          = sanitize(raw?.message);
+          const wardrobeContext  = sanitize(raw?.wardrobeContext);
+          // userName is derived from supabase.auth.getUser() on the client;
+          // fall back to a generic pronoun so the prompt always reads naturally.
+          const userName         = sanitize(raw?.userName) || "you";
           const historyRaw: any[] = Array.isArray(raw?.history) ? raw.history.slice(-MAX_HISTORY) : [];
           const history = historyRaw
             .filter((m) => m.role === "user" || m.role === "assistant")
@@ -34,13 +37,11 @@ export const Route = createFileRoute("/api/chat")({
             });
           }
 
-          const systemPrompt = `You are a personal fashion stylist for Shreeraj. You know his exact wardrobe:
+          const systemPrompt = `You are a personal fashion stylist for ${userName}. You know their exact wardrobe:
 
 ${wardrobeContext}
 
-Shreeraj has warm medium tan skin, near-black eyes, and deep black hair. He is based in Dublin, Ireland.
-
-Answer his questions concisely (2-4 sentences max). When recommending outfits, reference specific items from his wardrobe by name. Use styling principles: colour harmony, occasion matching, layering logic. Be direct, specific, and helpful — never generic.`;
+Answer their questions concisely (2-4 sentences max). When recommending outfits, reference specific items from their wardrobe by name. Use styling principles: colour harmony, occasion matching, layering logic. Be direct, specific, and helpful — never generic.`;
 
           const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",

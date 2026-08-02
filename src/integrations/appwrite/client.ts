@@ -1,9 +1,9 @@
 import { Client, Databases, Storage, ID, Query } from 'appwrite';
 
-export const ENDPOINT = 'https://cloud.appwrite.io/v1';
-export const PROJECT_ID = '6a28a77d0013aee2a168';
-export const DATABASE_ID = '6a28a85a000e81b0b254';
-export const BUCKET_ID = '6a28a8e6000b4c079139';
+export const ENDPOINT    = 'https://cloud.appwrite.io/v1';
+export const PROJECT_ID  = import.meta.env.VITE_APPWRITE_PROJECT_ID!;
+export const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID!;
+export const BUCKET_ID   = import.meta.env.VITE_APPWRITE_BUCKET_ID!;
 
 export const COLLECTIONS = {
   WARDROBE_ITEMS: 'wardrobe_items',
@@ -17,5 +17,5 @@ const appwriteClient = new Client()
   .setProject(PROJECT_ID);
 
 export const databases = new Databases(appwriteClient);
-export const storage = new Storage(appwriteClient);
+export const storage   = new Storage(appwriteClient);
 export { ID, Query };
