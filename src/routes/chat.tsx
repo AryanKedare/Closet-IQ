@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/chat")({ component: ChatPage });
 
@@ -23,6 +24,7 @@ async function streamChat(
   message: string,
   history: Message[],
   wardrobeContext: string,
+  userName: string,
   onDelta: (c: string) => void,
   onDone: () => void,
   onError: (e: string) => void
@@ -30,7 +32,7 @@ async function streamChat(
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, history, wardrobeContext }),
+    body: JSON.stringify({ message, history, wardrobeContext, userName }),
   });
   if (!res.ok || !res.body) {
     const txt = await res.text();
@@ -70,7 +72,22 @@ function ChatPage() {
   ]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [userName, setUserName] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Resolve the logged-in user's display name from Supabase auth once on mount.
+  // Prefer full_name from user_metadata, then email prefix as a fallback.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const meta = data?.user?.user_metadata;
+      const name =
+        meta?.full_name ||
+        meta?.name ||
+        data?.user?.email?.split("@")[0] ||
+        "";
+      setUserName(name);
+    });
+  }, []);
 
   const wardrobeContext = useMemo(() => {
     return items
@@ -94,6 +111,7 @@ function ChatPage() {
       text,
       messages,
       wardrobeContext,
+      userName,
       (chunk) => setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = { role: "assistant", content: copy[copy.length - 1].content + chunk };
