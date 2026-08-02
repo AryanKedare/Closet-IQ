@@ -21,6 +21,7 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { resolveAccountDisplayName } from "@/lib/accountDisplayName";
 import { DeleteAccountSection } from "@/components/DeleteAccountSection";
+import { PersonalColorProfileSection } from "@/components/PersonalColorProfileSection";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -134,7 +135,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 md:pb-12">
         {children}
         {location.pathname === "/profile" && (
-          <div className="mt-6">
+          <div className="mt-6 space-y-6">
+            <PersonalColorProfileSection />
             <DeleteAccountSection />
           </div>
         )}
