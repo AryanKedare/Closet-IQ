@@ -1,5 +1,9 @@
-// Single-user mode — fixed user id used across the app.
-export const USER_ID = "00000000-0000-0000-0000-000000000001";
+// Live authenticated user id. Existing store queries import this binding.
+export let USER_ID = "";
+
+export function setUserId(userId: string | null) {
+  USER_ID = userId ?? "";
+}
 
 export const DEFAULT_PROFILE = {
   skinToneHex: "#CC9674",
