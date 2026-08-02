@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
@@ -17,6 +17,9 @@ import { streamExplanation } from "@/lib/groqExplainer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/outfits/$outfitId")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    explain: search.explain === true || search.explain === "true",
+  }),
   component: OutfitDetail,
   notFoundComponent: () => (
     <div className="card-surface mx-auto mt-12 max-w-md p-8 text-center">
@@ -33,6 +36,7 @@ export const Route = createFileRoute("/outfits/$outfitId")({
 
 function OutfitDetail() {
   const { outfitId } = Route.useParams();
+  const { explain } = Route.useSearch();
   const outfits = useStore((s) => s.outfits);
   const items = useStore((s) => s.items);
   const profile = useStore((s) => s.profile);
@@ -53,6 +57,7 @@ function OutfitDetail() {
   const [nameInput, setNameInput] = useState(outfit?.name ?? "");
   const [wornRating, setWornRating] = useState<number | null>(null);
   const [showRating, setShowRating] = useState(false);
+  const autoExplainStarted = useRef(false);
 
   if (!outfit) throw notFound();
 
@@ -114,6 +119,23 @@ function OutfitDetail() {
   }
 
   const showExplanation = streamed || outfit.aiExplanation;
+
+  useEffect(() => {
+    if (
+      !explain ||
+      autoExplainStarted.current ||
+      showExplanation ||
+      !profile ||
+      !top ||
+      !bottom ||
+      !shoes
+    ) {
+      return;
+    }
+
+    autoExplainStarted.current = true;
+    void handleExplain();
+  }, [explain, profile, top, bottom, shoes, showExplanation]);
 
   return (
     <div className="space-y-6">
