@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
@@ -17,6 +17,9 @@ import { streamExplanation } from "@/lib/groqExplainer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/outfits/$outfitId")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    explain: search.explain === true || search.explain === "true",
+  }),
   component: OutfitDetail,
   notFoundComponent: () => (
     <div className="card-surface mx-auto mt-12 max-w-md p-8 text-center">
@@ -33,6 +36,7 @@ export const Route = createFileRoute("/outfits/$outfitId")({
 
 function OutfitDetail() {
   const { outfitId } = Route.useParams();
+  const { explain } = Route.useSearch();
   const outfits = useStore((s) => s.outfits);
   const items = useStore((s) => s.items);
   const profile = useStore((s) => s.profile);
@@ -53,6 +57,7 @@ function OutfitDetail() {
   const [nameInput, setNameInput] = useState(outfit?.name ?? "");
   const [wornRating, setWornRating] = useState<number | null>(null);
   const [showRating, setShowRating] = useState(false);
+  const autoExplainStarted = useRef(false);
 
   if (!outfit) throw notFound();
 
@@ -79,13 +84,15 @@ function OutfitDetail() {
   }, [outfits, outfit.id, outfit.compatibilityScore]);
 
   async function handleExplain() {
-    if (!profile || !top || !bottom || !shoes) {
-      setError("Missing outfit or profile data for explanation");
+    if (!profile) {
+      setError("Your profile has not loaded. Refresh the page and try again.");
       return;
     }
 
-    if (outfit?.aiExplanation) {
-      setStreamed(outfit.aiExplanation);
+    if (!top || !bottom || !shoes) {
+      setError(
+        "This outfit is missing a required item. Regenerate your outfits and try again.",
+      );
       return;
     }
 
@@ -93,38 +100,42 @@ function OutfitDetail() {
     setError(null);
     setStreamed("");
 
-    console.log("explain inputs", {
-      top,
-      bottom,
-      shoes,
-      jacket,
-      profile,
-    });
-
-    let full = "";
-
     await streamExplanation({
       top,
       bottom,
       shoes,
       jacket,
       profile,
-      onDelta: (c) => {
-        full += c;
-        setStreamed((prev) => prev + c);
-      },
-      onDone: async () => {
+      onDelta: (chunk) => setStreamed((current) => current + chunk),
+      onDone: async (explanation) => {
         setStreaming(false);
-        if (full && outfit) await setExplanation(outfit.id, full);
+        await setExplanation(outfit.id, explanation);
       },
-      onError: (e) => {
+      onError: (message) => {
         setStreaming(false);
-        setError(`Explanation failed: ${e}`);
+        setError(`Explanation failed: ${message}`);
       },
     });
   }
 
   const showExplanation = streamed || outfit.aiExplanation;
+
+  useEffect(() => {
+    if (
+      !explain ||
+      autoExplainStarted.current ||
+      showExplanation ||
+      !profile ||
+      !top ||
+      !bottom ||
+      !shoes
+    ) {
+      return;
+    }
+
+    autoExplainStarted.current = true;
+    void handleExplain();
+  }, [explain, profile, top, bottom, shoes, showExplanation]);
 
   return (
     <div className="space-y-6">
@@ -282,22 +293,27 @@ function OutfitDetail() {
           </div>
 
           <div className="card-surface p-5">
-            <div className="flex items-center justify-between gap-3">
+            {!showExplanation ? (
+              <button
+                type="button"
+                onClick={handleExplain}
+                disabled={streaming}
+                className="flex w-full cursor-pointer items-center justify-between gap-3 text-left disabled:cursor-wait disabled:opacity-60"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="font-semibold">Why this works?</span>
+                </span>
+                <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  {streaming ? "Thinking…" : "Generate explanation"}
+                </span>
+              </button>
+            ) : (
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <h3 className="font-semibold">Why this works?</h3>
               </div>
-
-              {!showExplanation && (
-                <button
-                  onClick={handleExplain}
-                  disabled={streaming || !profile || !top || !bottom || !shoes}
-                  className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
-                >
-                  {streaming ? "Thinking…" : "Generate explanation"}
-                </button>
-              )}
-            </div>
+            )}
 
             {error && (
               <p className="mt-3 text-sm text-destructive">{error}</p>
@@ -314,8 +330,8 @@ function OutfitDetail() {
               !streaming &&
               !error && (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Tap to get a tailored breakdown of color harmony, contrast, and
-                  how this combination reads against warm medium skin.
+                  Generate a tailored breakdown of color harmony, contrast, and
+                  how this combination reads against your profile.
                 </p>
               )
             )}

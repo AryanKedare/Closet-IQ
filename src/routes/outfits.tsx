@@ -1,17 +1,31 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
-import { OCCASION_FILTERS } from "@/lib/constants";
+import { DEFAULT_PROFILE, OCCASION_FILTERS } from "@/lib/constants";
+import { streamExplanation } from "@/lib/groqExplainer";
+import type { UserProfile } from "@/lib/types";
 import { Wand2, Bookmark, Heart, CheckCircle2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/outfits")({ component: OutfitsPage });
 
+const FALLBACK_PROFILE: UserProfile = {
+  id: "fallback-profile",
+  displayName: "Guest",
+  skinToneHex: DEFAULT_PROFILE.skinToneHex,
+  eyeColorHex: DEFAULT_PROFILE.eyeColorHex,
+  hairColorHex: DEFAULT_PROFILE.hairColorHex,
+  skinToneType: DEFAULT_PROFILE.skinToneType,
+  stylePreferences: [],
+};
+
 function OutfitsPage() {
   const outfits = useStore((s) => s.outfits);
   const items = useStore((s) => s.items);
+  const profile = useStore((s) => s.profile);
+  const setExplanation = useStore((s) => s.setExplanation);
   const generate = useStore((s) => s.generate);
   const generating = useStore((s) => s.generating);
   const toggleSaved = useStore((s) => s.toggleSaved);
@@ -20,15 +34,75 @@ function OutfitsPage() {
 
   const [filter, setFilter] = useState<string>("All");
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [explainingId, setExplainingId] = useState<string | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explainErrors, setExplainErrors] = useState<Record<string, string>>({});
 
-  const getItem = (id: string | null) => (id ? items.find((i) => i.id === id) ?? null : null);
+  const getItem = (id: string | null) =>
+    id ? items.find((i) => i.id === id) ?? null : null;
 
   const filtered = useMemo(() => {
     let list = outfits;
     if (showSavedOnly) list = list.filter((o) => o.isSaved);
-    if (filter !== "All") list = list.filter((o) => o.occasionTags.includes(filter));
+    if (filter !== "All")
+      list = list.filter((o) => o.occasionTags.includes(filter));
     return list;
   }, [outfits, filter, showSavedOnly]);
+
+  async function explainOutfit(outfitId: string) {
+    const outfit = outfits.find((candidate) => candidate.id === outfitId);
+    if (!outfit) return;
+
+    const top = getItem(outfit.topId);
+    const bottom = getItem(outfit.bottomId);
+    const shoes = getItem(outfit.shoesId);
+    const jacket = getItem(outfit.jacketId);
+
+    if (!top || !bottom || !shoes) {
+      setExplainErrors((current) => ({
+        ...current,
+        [outfitId]: "This outfit is missing a required item.",
+      }));
+      return;
+    }
+
+    setExplainingId(outfitId);
+    setExplainErrors((current) => ({ ...current, [outfitId]: "" }));
+    setExplanations((current) => ({ ...current, [outfitId]: "" }));
+
+    try {
+      const explanation = await streamExplanation({
+        top,
+        bottom,
+        shoes,
+        jacket,
+        profile: profile ?? FALLBACK_PROFILE,
+        onDelta: (chunk) => {
+          setExplanations((current) => ({
+            ...current,
+            [outfitId]: `${current[outfitId] ?? ""}${chunk}`,
+          }));
+        },
+      });
+
+      setExplanations((current) => ({
+        ...current,
+        [outfitId]: explanation,
+      }));
+
+      void setExplanation(outfitId, explanation).catch((error) => {
+        console.error("Failed to persist outfit explanation:", error);
+      });
+    } catch (error) {
+      setExplainErrors((current) => ({
+        ...current,
+        [outfitId]:
+          error instanceof Error ? error.message : "Could not generate explanation",
+      }));
+    } finally {
+      setExplainingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -46,7 +120,7 @@ function OutfitsPage() {
               "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
               showSavedOnly
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:text-foreground"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
             <Bookmark className="h-4 w-4" />
@@ -69,10 +143,10 @@ function OutfitsPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors flex-shrink-0",
+              "flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
               filter === f
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:text-foreground"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
             {f === "All" ? f : f.replace("-", " ")}
@@ -108,6 +182,10 @@ function OutfitsPage() {
             const bottom = getItem(o.bottomId);
             const shoes = getItem(o.shoesId);
             const jacket = getItem(o.jacketId);
+            const isExplaining = explainingId === o.id;
+            const explanation = explanations[o.id] ?? o.aiExplanation ?? "";
+            const explainError = explainErrors[o.id] ?? "";
+
             return (
               <div key={o.id} className="card-surface flex flex-col p-4">
                 <div className="grid grid-cols-2 gap-2">
@@ -138,27 +216,56 @@ function OutfitsPage() {
                       label="Save"
                       active={o.isSaved}
                     >
-                      <Bookmark className={cn("h-4 w-4", o.isSaved && "fill-current")} />
+                      <Bookmark
+                        className={cn("h-4 w-4", o.isSaved && "fill-current")}
+                      />
                     </IconBtn>
                     <IconBtn
                       onClick={() => toggleFavorite(o.id)}
                       label="Favorite"
                       active={o.isFavorite}
                     >
-                      <Heart className={cn("h-4 w-4", o.isFavorite && "fill-current")} />
+                      <Heart
+                        className={cn(
+                          "h-4 w-4",
+                          o.isFavorite && "fill-current",
+                        )}
+                      />
                     </IconBtn>
                     <IconBtn onClick={() => markWorn(o.id)} label="Mark worn">
                       <CheckCircle2 className="h-4 w-4" />
                     </IconBtn>
                   </div>
-                  <Link
-                    to="/outfits/$outfitId"
-                    params={{ outfitId: o.id }}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  <button
+                    type="button"
+                    onClick={() => void explainOutfit(o.id)}
+                    disabled={explainingId !== null}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Info className="h-3.5 w-3.5" /> Why this works?
-                  </Link>
+                    <Info className="h-3.5 w-3.5" />
+                    {isExplaining
+                      ? "Generating…"
+                      : explanation
+                        ? "Regenerate explanation"
+                        : "Why this works?"}
+                  </button>
                 </div>
+
+                {(explanation || explainError) && (
+                  <div
+                    className={cn(
+                      "mt-4 rounded-md border p-3 text-sm leading-relaxed",
+                      explainError
+                        ? "border-destructive/30 bg-destructive/5 text-destructive"
+                        : "border-border bg-muted/40 text-foreground/90",
+                    )}
+                  >
+                    {explainError || explanation}
+                    {isExplaining && !explainError && (
+                      <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-primary" />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -172,7 +279,9 @@ function Slot({ label, item }: { label: string; item: any }) {
   return (
     <div>
       <ItemImage item={item} />
-      <p className="mt-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <p className="line-clamp-1 text-xs font-medium">{item?.name ?? "—"}</p>
     </div>
   );
@@ -198,7 +307,7 @@ function IconBtn({
         "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
         active
           ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-card text-muted-foreground hover:text-foreground"
+          : "border-border bg-card text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
