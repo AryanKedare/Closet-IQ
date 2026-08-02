@@ -54,13 +54,13 @@ function OnboardingPage() {
 
     if (profile) {
       setAnswers({
-        skinTone: profile.skinTone,
-        skinUndertone: profile.skinUndertone,
-        hairColor: profile.hairColor,
-        eyeColor: profile.eyeColor,
-        contrastLevel: profile.contrastLevel,
+        skinTone: profile.skinTone ?? null,
+        skinUndertone: profile.skinUndertone ?? null,
+        hairColor: profile.hairColor ?? null,
+        eyeColor: profile.eyeColor ?? null,
+        contrastLevel: profile.contrastLevel ?? null,
       });
-      setBodyDetails(profile.bodyDetails);
+      setBodyDetails(profile.bodyDetails ?? EMPTY_BODY);
     }
   }, [profile]);
 
