@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Chrome, Eye, EyeOff, Loader2, LogIn, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,7 +170,14 @@ function LoginPage() {
             </label>
 
             <label className="block text-sm font-medium">
-              Password
+              <span className="flex items-center justify-between gap-3">
+                Password
+                {mode === "signin" && (
+                  <Link to="/reset-password" className="text-xs font-medium text-primary hover:underline">
+                    Forgot password?
+                  </Link>
+                )}
+              </span>
               <div className="relative mt-1.5">
                 <input
                   type={showPassword ? "text" : "password"}
