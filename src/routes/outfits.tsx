@@ -1,17 +1,21 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
 import { OCCASION_FILTERS } from "@/lib/constants";
+import { generateOutfitExplanation } from "@/lib/generateOutfitExplanation";
 import { Wand2, Bookmark, Heart, CheckCircle2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/outfits")({ component: OutfitsPage });
 
 function OutfitsPage() {
+  const navigate = useNavigate();
   const outfits = useStore((s) => s.outfits);
   const items = useStore((s) => s.items);
+  const profile = useStore((s) => s.profile);
+  const setExplanation = useStore((s) => s.setExplanation);
   const generate = useStore((s) => s.generate);
   const generating = useStore((s) => s.generating);
   const toggleSaved = useStore((s) => s.toggleSaved);
@@ -20,6 +24,8 @@ function OutfitsPage() {
 
   const [filter, setFilter] = useState<string>("All");
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [explainingId, setExplainingId] = useState<string | null>(null);
+  const [explainError, setExplainError] = useState<string | null>(null);
 
   const getItem = (id: string | null) =>
     id ? items.find((i) => i.id === id) ?? null : null;
@@ -31,6 +37,38 @@ function OutfitsPage() {
       list = list.filter((o) => o.occasionTags.includes(filter));
     return list;
   }, [outfits, filter, showSavedOnly]);
+
+  async function explainAndOpen(outfitId: string) {
+    const outfit = outfits.find((candidate) => candidate.id === outfitId);
+    if (!outfit) return;
+
+    setExplainingId(outfitId);
+    setExplainError(null);
+
+    try {
+      await generateOutfitExplanation({
+        outfit,
+        top: getItem(outfit.topId),
+        bottom: getItem(outfit.bottomId),
+        shoes: getItem(outfit.shoesId),
+        jacket: getItem(outfit.jacketId),
+        profile,
+        save: setExplanation,
+        navigate: async (id) => {
+          await navigate({
+            to: "/outfits/$outfitId",
+            params: { outfitId: id },
+          });
+        },
+      });
+    } catch (error) {
+      setExplainError(
+        error instanceof Error ? error.message : "Could not generate explanation",
+      );
+    } finally {
+      setExplainingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -64,6 +102,12 @@ function OutfitsPage() {
           </button>
         </div>
       </div>
+
+      {explainError && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          Explanation failed: {explainError}
+        </p>
+      )}
 
       <div className="scrollbar-hidden -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {OCCASION_FILTERS.map((f) => (
@@ -110,6 +154,8 @@ function OutfitsPage() {
             const bottom = getItem(o.bottomId);
             const shoes = getItem(o.shoesId);
             const jacket = getItem(o.jacketId);
+            const isExplaining = explainingId === o.id;
+
             return (
               <div key={o.id} className="card-surface flex flex-col p-4">
                 <div className="grid grid-cols-2 gap-2">
@@ -160,14 +206,15 @@ function OutfitsPage() {
                       <CheckCircle2 className="h-4 w-4" />
                     </IconBtn>
                   </div>
-                  <Link
-                    to="/outfits/$outfitId"
-                    params={{ outfitId: o.id }}
-                    search={{ explain: true }}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  <button
+                    type="button"
+                    onClick={() => void explainAndOpen(o.id)}
+                    disabled={explainingId !== null}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Info className="h-3.5 w-3.5" /> Why this works?
-                  </Link>
+                    <Info className="h-3.5 w-3.5" />
+                    {isExplaining ? "Generating…" : "Why this works?"}
+                  </button>
                 </div>
               </div>
             );
