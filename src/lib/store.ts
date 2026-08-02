@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { databases, storage, ID, Query, DATABASE_ID, BUCKET_ID, COLLECTIONS } from "@/integrations/appwrite/client";
+import { supabase } from "@/integrations/supabase/client";
 import { USER_ID, DEFAULT_PROFILE } from "./constants";
 import { mapWardrobeItem, mapProfile, mapOutfit, mapHistory } from "./mappers";
 import type { WardrobeItem, UserProfile, Outfit, OutfitHistory } from "./types";
@@ -17,7 +17,10 @@ type State = {
   theme: ThemeMode;
   loadAll: () => Promise<void>;
   saveProfile: (p: Partial<UserProfile>) => Promise<void>;
-  addItem: (item: Omit<WardrobeItem, "id" | "userId" | "createdAt" | "timesWorn">, file?: File) => Promise<WardrobeItem>;
+  addItem: (
+    item: Omit<WardrobeItem, "id" | "userId" | "createdAt" | "timesWorn">,
+    file?: File
+  ) => Promise<WardrobeItem>;
   deleteItem: (id: string) => Promise<void>;
   generate: () => Promise<void>;
   toggleSaved: (id: string) => Promise<void>;
@@ -37,7 +40,8 @@ const initialTheme: ThemeMode =
     ? "dark"
     : typeof window !== "undefined" && localStorage.getItem("closetiq-theme") === "light"
       ? "light"
-      : typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      : typeof window !== "undefined" &&
+          window.matchMedia?.("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light";
 
@@ -75,43 +79,55 @@ export const useStore = create<State>((set, get) => ({
   loadAll: async () => {
     set({ loading: true });
     try {
-      let profileDoc;
-      try {
-        profileDoc = await databases.getDocument(DATABASE_ID, COLLECTIONS.USER_PROFILE, USER_ID);
-      } catch {
-        profileDoc = await databases.createDocument(DATABASE_ID, COLLECTIONS.USER_PROFILE, USER_ID, {
-          display_name: "Shreeraj",
-          skin_tone_hex: DEFAULT_PROFILE.skinToneHex,
-          eye_color_hex: DEFAULT_PROFILE.eyeColorHex,
-          hair_color_hex: DEFAULT_PROFILE.hairColorHex,
-          skin_tone_type: DEFAULT_PROFILE.skinToneType,
-          style_preferences: [],
-        });
+      let { data: profileRow } = await supabase
+        .from("user_profile")
+        .select("*")
+        .eq("id", USER_ID)
+        .single();
+
+      if (!profileRow) {
+        const { data: created } = await supabase
+          .from("user_profile")
+          .insert({
+            id: USER_ID,
+            display_name: "User",
+            skin_tone_hex: DEFAULT_PROFILE.skinToneHex,
+            eye_color_hex: DEFAULT_PROFILE.eyeColorHex,
+            hair_color_hex: DEFAULT_PROFILE.hairColorHex,
+            skin_tone_type: DEFAULT_PROFILE.skinToneType,
+            style_preferences: [],
+          })
+          .select()
+          .single();
+        profileRow = created;
       }
 
       const [itemsRes, outfitsRes, historyRes] = await Promise.all([
-        databases.listDocuments(DATABASE_ID, COLLECTIONS.WARDROBE_ITEMS, [
-          Query.equal("user_id", USER_ID),
-          Query.orderDesc("$createdAt"),
-          Query.limit(500),
-        ]),
-        databases.listDocuments(DATABASE_ID, COLLECTIONS.OUTFITS, [
-          Query.equal("user_id", USER_ID),
-          Query.orderDesc("compatibility_score"),
-          Query.limit(500),
-        ]),
-        databases.listDocuments(DATABASE_ID, COLLECTIONS.OUTFIT_HISTORY, [
-          Query.equal("user_id", USER_ID),
-          Query.orderDesc("worn_date"),
-          Query.limit(500),
-        ]),
+        supabase
+          .from("wardrobe_items")
+          .select("*")
+          .eq("user_id", USER_ID)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase
+          .from("outfits")
+          .select("*")
+          .eq("user_id", USER_ID)
+          .order("compatibility_score", { ascending: false })
+          .limit(500),
+        supabase
+          .from("outfit_history")
+          .select("*")
+          .eq("user_id", USER_ID)
+          .order("worn_date", { ascending: false })
+          .limit(500),
       ]);
 
       set({
-        profile: mapProfile(profileDoc),
-        items: itemsRes.documents.map(mapWardrobeItem),
-        outfits: outfitsRes.documents.map(mapOutfit),
-        history: historyRes.documents.map(mapHistory),
+        profile: profileRow ? mapProfile(profileRow) : null,
+        items: (itemsRes.data ?? []).map(mapWardrobeItem),
+        outfits: (outfitsRes.data ?? []).map(mapOutfit),
+        history: (historyRes.data ?? []).map(mapHistory),
         loading: false,
       });
     } catch {
@@ -123,41 +139,55 @@ export const useStore = create<State>((set, get) => ({
     const cur = get().profile;
     if (!cur) return;
     const next = { ...cur, ...p };
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.USER_PROFILE, USER_ID, {
-      display_name: next.displayName,
-      skin_tone_hex: next.skinToneHex,
-      eye_color_hex: next.eyeColorHex,
-      hair_color_hex: next.hairColorHex,
-      skin_tone_type: next.skinToneType,
-      style_preferences: next.stylePreferences ?? [],
-    });
+    await supabase
+      .from("user_profile")
+      .update({
+        display_name: next.displayName,
+        skin_tone_hex: next.skinToneHex,
+        eye_color_hex: next.eyeColorHex,
+        hair_color_hex: next.hairColorHex,
+        skin_tone_type: next.skinToneType,
+        style_preferences: next.stylePreferences ?? [],
+      })
+      .eq("id", USER_ID);
     set({ profile: next });
   },
 
   addItem: async (item, file) => {
-    const doc = await databases.createDocument(DATABASE_ID, COLLECTIONS.WARDROBE_ITEMS, ID.unique(), {
-      user_id: USER_ID,
-      name: item.name,
-      category: item.category,
-      sub_category: item.subCategory ?? null,
-      primary_color: item.primaryColor,
-      secondary_color: item.secondaryColor ?? null,
-      color_family: item.colorFamily,
-      style_tags: item.styleTags ?? [],
-      occasion_tags: item.occasionTags ?? [],
-      pattern: item.pattern,
-      season: item.season ?? [],
-      brand: item.brand ?? null,
-      times_worn: 0,
-      is_stored: false,
-    });
+    const { data: doc, error } = await supabase
+      .from("wardrobe_items")
+      .insert({
+        user_id: USER_ID,
+        name: item.name,
+        category: item.category,
+        sub_category: item.subCategory ?? null,
+        primary_color: item.primaryColor,
+        secondary_color: item.secondaryColor ?? null,
+        color_family: item.colorFamily,
+        style_tags: item.styleTags ?? [],
+        occasion_tags: item.occasionTags ?? [],
+        pattern: item.pattern,
+        season: item.season ?? [],
+        brand: item.brand ?? null,
+        times_worn: 0,
+        is_stored: false,
+      })
+      .select()
+      .single();
+
+    if (error || !doc) throw error;
     let mapped = mapWardrobeItem(doc);
 
     if (file) {
       const { uploadWardrobeImage } = await import("./imageUpload");
       const url = await uploadWardrobeImage(file, mapped.id);
-      const updated = await databases.updateDocument(DATABASE_ID, COLLECTIONS.WARDROBE_ITEMS, mapped.id, { image_url: url });
-      mapped = mapWardrobeItem(updated);
+      const { data: updated } = await supabase
+        .from("wardrobe_items")
+        .update({ image_url: url })
+        .eq("id", mapped.id)
+        .select()
+        .single();
+      if (updated) mapped = mapWardrobeItem(updated);
     }
 
     set({ items: [mapped, ...get().items] });
@@ -165,13 +195,18 @@ export const useStore = create<State>((set, get) => ({
   },
 
   deleteItem: async (id) => {
-    await databases.deleteDocument(DATABASE_ID, COLLECTIONS.WARDROBE_ITEMS, id);
-    // Also remove image from storage (best effort)
-    try { await storage.deleteFile(BUCKET_ID, id); } catch {}
+    await supabase.from("wardrobe_items").delete().eq("id", id);
+    try {
+      await supabase.storage.from("wardrobe-images").remove([`${id}.webp`]);
+    } catch {}
     set({
       items: get().items.filter((i) => i.id !== id),
       outfits: get().outfits.filter(
-        (o) => o.topId !== id && o.bottomId !== id && o.shoesId !== id && o.jacketId !== id
+        (o) =>
+          o.topId !== id &&
+          o.bottomId !== id &&
+          o.shoesId !== id &&
+          o.jacketId !== id
       ),
     });
   },
@@ -183,54 +218,57 @@ export const useStore = create<State>((set, get) => ({
     const activeItems = items.filter((i) => !i.isStored);
     const candidates = generateOutfits(activeItems, profile);
 
-    // Delete all unsaved outfits
-    const { documents: unsaved } = await databases.listDocuments(DATABASE_ID, COLLECTIONS.OUTFITS, [
-      Query.equal("user_id", USER_ID),
-      Query.equal("is_saved", false),
-      Query.limit(500),
-    ]);
-    await Promise.all(unsaved.map((doc) => databases.deleteDocument(DATABASE_ID, COLLECTIONS.OUTFITS, doc.$id)));
+    await supabase
+      .from("outfits")
+      .delete()
+      .eq("user_id", USER_ID)
+      .eq("is_saved", false);
 
     if (candidates.length > 0) {
-      await Promise.all(
-        candidates.map((c) =>
-          databases.createDocument(DATABASE_ID, COLLECTIONS.OUTFITS, ID.unique(), {
-            user_id: USER_ID,
-            top_id: c.topId ?? null,
-            bottom_id: c.bottomId ?? null,
-            shoes_id: c.shoesId ?? null,
-            jacket_id: c.jacketId ?? null,
-            compatibility_score: c.score,
-            occasion_tags: c.occasionTags,
-            is_saved: false,
-            is_favorite: false,
-            worn_count: 0,
-          })
-        )
+      await supabase.from("outfits").insert(
+        candidates.map((c) => ({
+          user_id: USER_ID,
+          top_id: c.topId ?? null,
+          bottom_id: c.bottomId ?? null,
+          shoes_id: c.shoesId ?? null,
+          jacket_id: c.jacketId ?? null,
+          compatibility_score: c.score,
+          occasion_tags: c.occasionTags,
+          is_saved: false,
+          is_favorite: false,
+          worn_count: 0,
+        }))
       );
     }
 
-    const { documents } = await databases.listDocuments(DATABASE_ID, COLLECTIONS.OUTFITS, [
-      Query.equal("user_id", USER_ID),
-      Query.orderDesc("compatibility_score"),
-      Query.limit(500),
-    ]);
-    set({ outfits: documents.map(mapOutfit), generating: false });
+    const { data } = await supabase
+      .from("outfits")
+      .select("*")
+      .eq("user_id", USER_ID)
+      .order("compatibility_score", { ascending: false })
+      .limit(500);
+
+    set({ outfits: (data ?? []).map(mapOutfit), generating: false });
   },
 
   toggleSaved: async (id) => {
     const o = get().outfits.find((x) => x.id === id);
     if (!o) return;
     const next = !o.isSaved;
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.OUTFITS, id, { is_saved: next });
-    set({ outfits: get().outfits.map((x) => (x.id === id ? { ...x, isSaved: next } : x)) });
+    await supabase.from("outfits").update({ is_saved: next }).eq("id", id);
+    set({
+      outfits: get().outfits.map((x) => (x.id === id ? { ...x, isSaved: next } : x)),
+    });
   },
 
   toggleFavorite: async (id) => {
     const o = get().outfits.find((x) => x.id === id);
     if (!o) return;
     const next = !o.isFavorite;
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.OUTFITS, id, { is_favorite: next, is_saved: true });
+    await supabase
+      .from("outfits")
+      .update({ is_favorite: next, is_saved: true })
+      .eq("id", id);
     set({
       outfits: get().outfits.map((x) =>
         x.id === id ? { ...x, isFavorite: next, isSaved: true } : x
@@ -243,63 +281,89 @@ export const useStore = create<State>((set, get) => ({
     const o = get().outfits.find((x) => x.id === outfitId);
     if (!o) return;
 
-    const histDoc = await databases.createDocument(DATABASE_ID, COLLECTIONS.OUTFIT_HISTORY, ID.unique(), {
-      user_id: USER_ID,
-      outfit_id: outfitId,
-      worn_date: today,
-      occasion: occasion ?? null,
-      notes: null,
-    });
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.OUTFITS, outfitId, {
-      worn_count: o.wornCount + 1,
-      is_saved: true,
-    });
+    const { data: histDoc } = await supabase
+      .from("outfit_history")
+      .insert({
+        user_id: USER_ID,
+        outfit_id: outfitId,
+        worn_date: today,
+        occasion: occasion ?? null,
+        notes: null,
+      })
+      .select()
+      .single();
 
-    const itemIds = [o.topId, o.bottomId, o.shoesId, o.jacketId].filter(Boolean) as string[];
+    await supabase
+      .from("outfits")
+      .update({ worn_count: o.wornCount + 1, is_saved: true })
+      .eq("id", outfitId);
+
+    const itemIds = [o.topId, o.bottomId, o.shoesId, o.jacketId].filter(
+      Boolean
+    ) as string[];
     const updates = itemIds
       .map((id) => get().items.find((i) => i.id === id))
       .filter(Boolean) as WardrobeItem[];
+
     await Promise.all(
       updates.map((it) =>
-        databases.updateDocument(DATABASE_ID, COLLECTIONS.WARDROBE_ITEMS, it.id, {
-          times_worn: it.timesWorn + 1,
-          last_worn: new Date().toISOString(),
-        })
+        supabase
+          .from("wardrobe_items")
+          .update({
+            times_worn: it.timesWorn + 1,
+            last_worn: new Date().toISOString(),
+          })
+          .eq("id", it.id)
       )
     );
 
     set({
       outfits: get().outfits.map((x) =>
-        x.id === outfitId ? { ...x, wornCount: x.wornCount + 1, isSaved: true } : x
+        x.id === outfitId
+          ? { ...x, wornCount: x.wornCount + 1, isSaved: true }
+          : x
       ),
       items: get().items.map((it) =>
         itemIds.includes(it.id)
           ? { ...it, timesWorn: it.timesWorn + 1, lastWorn: new Date().toISOString() }
           : it
       ),
-      history: [mapHistory(histDoc), ...get().history],
+      history: histDoc
+        ? [mapHistory(histDoc), ...get().history]
+        : get().history,
     });
   },
 
   setExplanation: async (outfitId, text) => {
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.OUTFITS, outfitId, { ai_explanation: text });
+    await supabase
+      .from("outfits")
+      .update({ ai_explanation: text })
+      .eq("id", outfitId);
     set({
-      outfits: get().outfits.map((x) => (x.id === outfitId ? { ...x, aiExplanation: text } : x)),
+      outfits: get().outfits.map((x) =>
+        x.id === outfitId ? { ...x, aiExplanation: text } : x
+      ),
     });
   },
 
   renameOutfit: async (outfitId, name) => {
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.OUTFITS, outfitId, { name });
-    set({ outfits: get().outfits.map((x) => (x.id === outfitId ? { ...x, name } : x)) });
+    await supabase.from("outfits").update({ name }).eq("id", outfitId);
+    set({
+      outfits: get().outfits.map((x) => (x.id === outfitId ? { ...x, name } : x)),
+    });
   },
 
   rateWear: async (historyId, rating) => {
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.OUTFIT_HISTORY, historyId, { rating });
-    set({ history: get().history.map((h) => (h.id === historyId ? { ...h, rating } : h)) });
+    await supabase.from("outfit_history").update({ rating }).eq("id", historyId);
+    set({
+      history: get().history.map((h) =>
+        h.id === historyId ? { ...h, rating } : h
+      ),
+    });
   },
 
   deleteHistory: async (historyId) => {
-    await databases.deleteDocument(DATABASE_ID, COLLECTIONS.OUTFIT_HISTORY, historyId);
+    await supabase.from("outfit_history").delete().eq("id", historyId);
     set({ history: get().history.filter((h) => h.id !== historyId) });
   },
 
@@ -307,7 +371,14 @@ export const useStore = create<State>((set, get) => ({
     const item = get().items.find((i) => i.id === itemId);
     if (!item) return;
     const next = !item.isStored;
-    await databases.updateDocument(DATABASE_ID, COLLECTIONS.WARDROBE_ITEMS, itemId, { is_stored: next });
-    set({ items: get().items.map((i) => (i.id === itemId ? { ...i, isStored: next } : i)) });
+    await supabase
+      .from("wardrobe_items")
+      .update({ is_stored: next })
+      .eq("id", itemId);
+    set({
+      items: get().items.map((i) =>
+        i.id === itemId ? { ...i, isStored: next } : i
+      ),
+    });
   },
 }));
