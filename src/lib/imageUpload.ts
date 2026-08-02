@@ -25,25 +25,29 @@ async function compressToWebp(file: File): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Image canvas is unavailable");
   ctx.drawImage(img, 0, 0, w, h);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("Compression failed"))),
       "image/webp",
-      0.85
+      0.85,
     );
   });
+}
+
+export async function getWardrobeImagePath(itemId: string): Promise<string> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw error ?? new Error("Sign in before uploading images");
+  return `${data.user.id}/${itemId}.webp`;
 }
 
 export async function uploadWardrobeImage(file: File, itemId: string): Promise<string> {
   const blob = await compressToWebp(file);
   const fileObj = new File([blob], `${itemId}.webp`, { type: "image/webp" });
-  const path = `${itemId}.webp`;
-
-  // Remove old file first (best-effort upsert)
-  await supabase.storage.from(BUCKET).remove([path]);
+  const path = await getWardrobeImagePath(itemId);
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, fileObj, {
     contentType: "image/webp",
