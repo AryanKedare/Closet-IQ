@@ -1,17 +1,27 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
-import { OCCASION_FILTERS } from "@/lib/constants";
-import { generateOutfitExplanation } from "@/lib/generateOutfitExplanation";
+import { DEFAULT_PROFILE, OCCASION_FILTERS } from "@/lib/constants";
+import { streamExplanation } from "@/lib/groqExplainer";
+import type { UserProfile } from "@/lib/types";
 import { Wand2, Bookmark, Heart, CheckCircle2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/outfits")({ component: OutfitsPage });
 
+const FALLBACK_PROFILE: UserProfile = {
+  id: "fallback-profile",
+  displayName: "Guest",
+  skinToneHex: DEFAULT_PROFILE.skinToneHex,
+  eyeColorHex: DEFAULT_PROFILE.eyeColorHex,
+  hairColorHex: DEFAULT_PROFILE.hairColorHex,
+  skinToneType: DEFAULT_PROFILE.skinToneType,
+  stylePreferences: [],
+};
+
 function OutfitsPage() {
-  const navigate = useNavigate();
   const outfits = useStore((s) => s.outfits);
   const items = useStore((s) => s.items);
   const profile = useStore((s) => s.profile);
@@ -25,7 +35,8 @@ function OutfitsPage() {
   const [filter, setFilter] = useState<string>("All");
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [explainingId, setExplainingId] = useState<string | null>(null);
-  const [explainError, setExplainError] = useState<string | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explainErrors, setExplainErrors] = useState<Record<string, string>>({});
 
   const getItem = (id: string | null) =>
     id ? items.find((i) => i.id === id) ?? null : null;
@@ -38,33 +49,56 @@ function OutfitsPage() {
     return list;
   }, [outfits, filter, showSavedOnly]);
 
-  async function explainAndOpen(outfitId: string) {
+  async function explainOutfit(outfitId: string) {
     const outfit = outfits.find((candidate) => candidate.id === outfitId);
     if (!outfit) return;
 
+    const top = getItem(outfit.topId);
+    const bottom = getItem(outfit.bottomId);
+    const shoes = getItem(outfit.shoesId);
+    const jacket = getItem(outfit.jacketId);
+
+    if (!top || !bottom || !shoes) {
+      setExplainErrors((current) => ({
+        ...current,
+        [outfitId]: "This outfit is missing a required item.",
+      }));
+      return;
+    }
+
     setExplainingId(outfitId);
-    setExplainError(null);
+    setExplainErrors((current) => ({ ...current, [outfitId]: "" }));
+    setExplanations((current) => ({ ...current, [outfitId]: "" }));
 
     try {
-      await generateOutfitExplanation({
-        outfit,
-        top: getItem(outfit.topId),
-        bottom: getItem(outfit.bottomId),
-        shoes: getItem(outfit.shoesId),
-        jacket: getItem(outfit.jacketId),
-        profile,
-        save: setExplanation,
-        navigate: async (id) => {
-          await navigate({
-            to: "/outfits/$outfitId",
-            params: { outfitId: id },
-          });
+      const explanation = await streamExplanation({
+        top,
+        bottom,
+        shoes,
+        jacket,
+        profile: profile ?? FALLBACK_PROFILE,
+        onDelta: (chunk) => {
+          setExplanations((current) => ({
+            ...current,
+            [outfitId]: `${current[outfitId] ?? ""}${chunk}`,
+          }));
         },
       });
+
+      setExplanations((current) => ({
+        ...current,
+        [outfitId]: explanation,
+      }));
+
+      void setExplanation(outfitId, explanation).catch((error) => {
+        console.error("Failed to persist outfit explanation:", error);
+      });
     } catch (error) {
-      setExplainError(
-        error instanceof Error ? error.message : "Could not generate explanation",
-      );
+      setExplainErrors((current) => ({
+        ...current,
+        [outfitId]:
+          error instanceof Error ? error.message : "Could not generate explanation",
+      }));
     } finally {
       setExplainingId(null);
     }
@@ -102,12 +136,6 @@ function OutfitsPage() {
           </button>
         </div>
       </div>
-
-      {explainError && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          Explanation failed: {explainError}
-        </p>
-      )}
 
       <div className="scrollbar-hidden -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {OCCASION_FILTERS.map((f) => (
@@ -155,6 +183,8 @@ function OutfitsPage() {
             const shoes = getItem(o.shoesId);
             const jacket = getItem(o.jacketId);
             const isExplaining = explainingId === o.id;
+            const explanation = explanations[o.id] ?? o.aiExplanation ?? "";
+            const explainError = explainErrors[o.id] ?? "";
 
             return (
               <div key={o.id} className="card-surface flex flex-col p-4">
@@ -208,14 +238,34 @@ function OutfitsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => void explainAndOpen(o.id)}
+                    onClick={() => void explainOutfit(o.id)}
                     disabled={explainingId !== null}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-wait disabled:opacity-60"
                   >
                     <Info className="h-3.5 w-3.5" />
-                    {isExplaining ? "Generating…" : "Why this works?"}
+                    {isExplaining
+                      ? "Generating…"
+                      : explanation
+                        ? "Regenerate explanation"
+                        : "Why this works?"}
                   </button>
                 </div>
+
+                {(explanation || explainError) && (
+                  <div
+                    className={cn(
+                      "mt-4 rounded-md border p-3 text-sm leading-relaxed",
+                      explainError
+                        ? "border-destructive/30 bg-destructive/5 text-destructive"
+                        : "border-border bg-muted/40 text-foreground/90",
+                    )}
+                  >
+                    {explainError || explanation}
+                    {isExplaining && !explainError && (
+                      <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-primary" />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
