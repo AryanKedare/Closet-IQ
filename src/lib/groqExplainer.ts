@@ -31,9 +31,16 @@ export async function streamExplanation(opts: {
       }),
     });
 
-    if (!res.ok || !res.body) {
-      const txt = await res.text();
-      opts.onError(txt || `HTTP ${res.status}`);
+    if (!res.ok) {
+      opts.onError((await res.text()) || `HTTP ${res.status}`);
+      return;
+    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!res.body || !contentType.includes("text/event-stream")) {
+      opts.onError(
+        `Expected an event stream, received ${contentType || "no content type"}`,
+      );
       return;
     }
 
@@ -44,37 +51,44 @@ export async function streamExplanation(opts: {
     let done = false;
 
     while (!done) {
-      const { done: d, value } = await reader.read();
-      if (d) break;
+      const { done: streamEnded, value } = await reader.read();
+      if (streamEnded) break;
       buffer += decoder.decode(value, { stream: true });
 
-      let nl: number;
-      while ((nl = buffer.indexOf("\n")) !== -1) {
-        let line = buffer.slice(0, nl);
-        buffer = buffer.slice(nl + 1);
+      let newline: number;
+      while ((newline = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
         if (line.endsWith("\r")) line = line.slice(0, -1);
         if (!line || line.startsWith(":")) continue;
         if (!line.startsWith("data: ")) continue;
+
         const json = line.slice(6).trim();
         if (json === "[DONE]") {
           done = true;
           break;
         }
+
         try {
-          const parsed = JSON.parse(json);
-          const c = parsed.choices?.[0]?.delta?.content;
-          if (c) {
-            full += c;
-            opts.onDelta(c);
+          const chunk = JSON.parse(json).choices?.[0]?.delta?.content;
+          if (chunk) {
+            full += chunk;
+            opts.onDelta(chunk);
           }
         } catch {
-          buffer = line + "\n" + buffer;
-          break;
+          opts.onError("The explanation service returned an invalid stream");
+          return;
         }
       }
     }
+
+    if (!full.trim()) {
+      opts.onError("The explanation service returned an empty response");
+      return;
+    }
+
     opts.onDone(full);
-  } catch (e) {
-    opts.onError(e instanceof Error ? e.message : "Unknown error");
+  } catch (error) {
+    opts.onError(error instanceof Error ? error.message : "Unknown error");
   }
 }
