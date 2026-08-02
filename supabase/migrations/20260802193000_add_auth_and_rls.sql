@@ -66,7 +66,7 @@ begin
     '#1F1919',
     '#0A0B0B',
     'warm-medium',
-    '[]'::jsonb
+    array[]::text[]
   )
   on conflict (id) do nothing;
   return new;
@@ -95,7 +95,7 @@ select
   '#1F1919',
   '#0A0B0B',
   'warm-medium',
-  '[]'::jsonb
+  array[]::text[]
 from auth.users as users
 on conflict (id) do nothing;
 
