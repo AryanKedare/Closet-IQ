@@ -1,4 +1,6 @@
-import { storage, BUCKET_ID, ID, ENDPOINT, PROJECT_ID } from "@/integrations/appwrite/client";
+import { supabase } from "@/integrations/supabase/client";
+
+const BUCKET = "wardrobe-images";
 
 async function compressToWebp(file: File): Promise<Blob> {
   const dataUrl: string = await new Promise((resolve, reject) => {
@@ -38,12 +40,18 @@ async function compressToWebp(file: File): Promise<Blob> {
 export async function uploadWardrobeImage(file: File, itemId: string): Promise<string> {
   const blob = await compressToWebp(file);
   const fileObj = new File([blob], `${itemId}.webp`, { type: "image/webp" });
+  const path = `${itemId}.webp`;
 
-  // Delete existing file first (upsert equivalent)
-  try {
-    await storage.deleteFile(BUCKET_ID, itemId);
-  } catch {}
+  // Remove old file first (best-effort upsert)
+  await supabase.storage.from(BUCKET).remove([path]);
 
-  await storage.createFile(BUCKET_ID, itemId, fileObj);
-  return `${ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${itemId}/view?project=${PROJECT_ID}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, fileObj, {
+    contentType: "image/webp",
+    upsert: true,
+  });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }
