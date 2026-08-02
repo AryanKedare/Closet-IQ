@@ -5,6 +5,10 @@ function metadataText(metadata: UserMetadata, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalized(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export function resolveAccountDisplayName(args: {
   profileDisplayName?: string | null;
   userMetadata?: UserMetadata;
@@ -12,24 +16,31 @@ export function resolveAccountDisplayName(args: {
 }): string {
   const profileName = args.profileDisplayName?.trim() ?? "";
   const email = args.email?.trim() ?? "";
-
-  if (profileName && profileName.toLowerCase() !== email.toLowerCase()) {
-    return profileName;
-  }
+  const emailLocalPart = email.split("@")[0]?.trim() ?? "";
 
   const metadataName =
     metadataText(args.userMetadata, "display_name") ||
     metadataText(args.userMetadata, "full_name") ||
     metadataText(args.userMetadata, "name");
 
-  if (metadataName && metadataName.toLowerCase() !== email.toLowerCase()) {
+  const genericProfileNames = new Set([
+    "user",
+    "account",
+    normalized(email),
+    normalized(emailLocalPart),
+  ]);
+
+  if (profileName && !genericProfileNames.has(normalized(profileName))) {
+    return profileName;
+  }
+
+  if (metadataName && normalized(metadataName) !== normalized(email)) {
     return metadataName;
   }
 
-  if (email) {
-    const localPart = email.split("@")[0]?.trim();
-    if (localPart) return localPart;
+  if (profileName && normalized(profileName) !== normalized(email)) {
+    return profileName;
   }
 
-  return "Account";
+  return emailLocalPart || "Account";
 }
