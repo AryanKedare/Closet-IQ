@@ -33,6 +33,19 @@ export function mapProfile(row: any): UserProfile {
     skinToneType: row.skin_tone_type ?? "custom",
     stylePreferences: row.style_preferences ?? [],
     onboardingCompleted: row.onboarding_completed ?? false,
+    skinTone: row.skin_tone ?? null,
+    skinUndertone: row.skin_undertone ?? null,
+    hairColor: row.hair_color ?? null,
+    eyeColor: row.eye_color ?? null,
+    contrastLevel: row.contrast_level ?? null,
+    recommendedPalette: row.recommended_palette ?? [],
+    bodyDetails: {
+      bodyType: row.body_type ?? "",
+      bodyProportions: row.body_proportions ?? "",
+      shirtSize: row.shirt_size ?? "",
+      wristInches: row.wrist_inches == null ? "" : String(row.wrist_inches),
+      shoeSizeInches: row.shoe_size_inches == null ? "" : String(row.shoe_size_inches),
+    },
   };
 }
 
