@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
 import { DEFAULT_PROFILE, OCCASION_FILTERS } from "@/lib/constants";
 import { streamExplanation } from "@/lib/groqExplainer";
 import type { UserProfile } from "@/lib/types";
-import { Wand2, Bookmark, Heart, CheckCircle2, Info } from "lucide-react";
+import { Bookmark, CheckCircle2, Heart, Info, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/outfits")({ component: OutfitsPage });
@@ -19,18 +20,20 @@ const FALLBACK_PROFILE: UserProfile = {
   hairColorHex: DEFAULT_PROFILE.hairColorHex,
   skinToneType: DEFAULT_PROFILE.skinToneType,
   stylePreferences: [],
+  onboardingCompleted: true,
 };
 
 function OutfitsPage() {
-  const outfits = useStore((s) => s.outfits);
-  const items = useStore((s) => s.items);
-  const profile = useStore((s) => s.profile);
-  const setExplanation = useStore((s) => s.setExplanation);
-  const generate = useStore((s) => s.generate);
-  const generating = useStore((s) => s.generating);
-  const toggleSaved = useStore((s) => s.toggleSaved);
-  const toggleFavorite = useStore((s) => s.toggleFavorite);
-  const markWorn = useStore((s) => s.markWorn);
+  const outfits = useStore((state) => state.outfits);
+  const items = useStore((state) => state.items);
+  const profile = useStore((state) => state.profile);
+  const setExplanation = useStore((state) => state.setExplanation);
+  const generate = useStore((state) => state.generate);
+  const generating = useStore((state) => state.generating);
+  const generationNotice = useStore((state) => state.generationNotice);
+  const toggleSaved = useStore((state) => state.toggleSaved);
+  const toggleFavorite = useStore((state) => state.toggleFavorite);
+  const markWorn = useStore((state) => state.markWorn);
 
   const [filter, setFilter] = useState<string>("All");
   const [showSavedOnly, setShowSavedOnly] = useState(false);
@@ -39,15 +42,24 @@ function OutfitsPage() {
   const [explainErrors, setExplainErrors] = useState<Record<string, string>>({});
 
   const getItem = (id: string | null) =>
-    id ? items.find((i) => i.id === id) ?? null : null;
+    id ? items.find((item) => item.id === id) ?? null : null;
 
   const filtered = useMemo(() => {
     let list = outfits;
-    if (showSavedOnly) list = list.filter((o) => o.isSaved);
-    if (filter !== "All")
-      list = list.filter((o) => o.occasionTags.includes(filter));
+    if (showSavedOnly) list = list.filter((outfit) => outfit.isSaved);
+    if (filter !== "All") {
+      list = list.filter((outfit) => outfit.occasionTags.includes(filter));
+    }
     return list;
   }, [outfits, filter, showSavedOnly]);
+
+  async function generateOutfits() {
+    try {
+      await generate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Outfit generation failed");
+    }
+  }
 
   async function explainOutfit(outfitId: string) {
     const outfit = outfits.find((candidate) => candidate.id === outfitId);
@@ -85,19 +97,14 @@ function OutfitsPage() {
         },
       });
 
-      setExplanations((current) => ({
-        ...current,
-        [outfitId]: explanation,
-      }));
-
+      setExplanations((current) => ({ ...current, [outfitId]: explanation }));
       void setExplanation(outfitId, explanation).catch((error) => {
-        console.error("Failed to persist outfit explanation:", error);
+        console.error("Failed to persist outfit explanation", error);
       });
     } catch (error) {
       setExplainErrors((current) => ({
         ...current,
-        [outfitId]:
-          error instanceof Error ? error.message : "Could not generate explanation",
+        [outfitId]: error instanceof Error ? error.message : "Could not generate explanation",
       }));
     } finally {
       setExplainingId(null);
@@ -110,7 +117,7 @@ function OutfitsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Outfits</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {outfits.length} combinations generated • sorted by compatibility
+            {outfits.length} combinations · locally validated and AI curated
           </p>
         </div>
         <div className="flex gap-2">
@@ -127,29 +134,43 @@ function OutfitsPage() {
             Saved
           </button>
           <button
-            onClick={() => generate()}
+            onClick={() => void generateOutfits()}
             disabled={generating}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             <Wand2 className="h-4 w-4" />
-            {generating ? "Generating…" : "Regenerate"}
+            {generating ? "AI curating…" : "Generate with AI"}
           </button>
         </div>
       </div>
 
+      {generationNotice && (
+        <div
+          className={cn(
+            "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm",
+            generationNotice.startsWith("AI curated")
+              ? "border-primary/20 bg-primary/5 text-foreground"
+              : "border-amber-500/30 bg-amber-500/5 text-foreground",
+          )}
+        >
+          <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+          <p>{generationNotice}</p>
+        </div>
+      )}
+
       <div className="scrollbar-hidden -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-        {OCCASION_FILTERS.map((f) => (
+        {OCCASION_FILTERS.map((occasion) => (
           <button
-            key={f}
-            onClick={() => setFilter(f)}
+            key={occasion}
+            onClick={() => setFilter(occasion)}
             className={cn(
               "flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-              filter === f
+              filter === occasion
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
-            {f === "All" ? f : f.replace("-", " ")}
+            {occasion === "All" ? occasion : occasion.replace("-", " ")}
           </button>
         ))}
       </div>
@@ -161,33 +182,40 @@ function OutfitsPage() {
             <p className="font-semibold">No matching outfits</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {outfits.length === 0
-                ? "Generate outfits from your closet — every valid pairing, scored mathematically."
+                ? "Generate locally valid combinations and let the AI stylist curate the best set."
                 : "Try another occasion filter or regenerate."}
             </p>
           </div>
           {outfits.length === 0 && (
             <button
-              onClick={() => generate()}
+              onClick={() => void generateOutfits()}
               disabled={generating}
               className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {generating ? "Generating…" : "Generate now"}
+              {generating ? "AI curating…" : "Generate with AI"}
             </button>
           )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((o) => {
-            const top = getItem(o.topId);
-            const bottom = getItem(o.bottomId);
-            const shoes = getItem(o.shoesId);
-            const jacket = getItem(o.jacketId);
-            const isExplaining = explainingId === o.id;
-            const explanation = explanations[o.id] ?? o.aiExplanation ?? "";
-            const explainError = explainErrors[o.id] ?? "";
+          {filtered.map((outfit) => {
+            const top = getItem(outfit.topId);
+            const bottom = getItem(outfit.bottomId);
+            const shoes = getItem(outfit.shoesId);
+            const jacket = getItem(outfit.jacketId);
+            const isExplaining = explainingId === outfit.id;
+            const explanation = explanations[outfit.id] ?? outfit.aiExplanation ?? "";
+            const explainError = explainErrors[outfit.id] ?? "";
 
             return (
-              <div key={o.id} className="card-surface flex flex-col p-4">
+              <div key={outfit.id} className="card-surface flex flex-col p-4">
+                <div className="mb-3">
+                  <p className="font-semibold">{outfit.name || "AI-curated outfit"}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Compatibility {outfit.compatibilityScore}/100
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Slot label="Top" item={top} />
                   <Slot label="Bottom" item={bottom} />
@@ -196,14 +224,14 @@ function OutfitsPage() {
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
-                  <ScoreDots score={o.compatibilityScore} />
+                  <ScoreDots score={outfit.compatibilityScore} />
                   <div className="flex flex-wrap justify-end gap-1">
-                    {o.occasionTags.slice(0, 2).map((t) => (
+                    {outfit.occasionTags.slice(0, 2).map((tag) => (
                       <span
-                        key={t}
+                        key={tag}
                         className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground"
                       >
-                        {t.replace("-", " ")}
+                        {tag.replace("-", " ")}
                       </span>
                     ))}
                   </div>
@@ -212,33 +240,26 @@ function OutfitsPage() {
                 <div className="mt-4 flex items-center justify-between gap-2">
                   <div className="flex gap-1">
                     <IconBtn
-                      onClick={() => toggleSaved(o.id)}
+                      onClick={() => void toggleSaved(outfit.id)}
                       label="Save"
-                      active={o.isSaved}
+                      active={outfit.isSaved}
                     >
-                      <Bookmark
-                        className={cn("h-4 w-4", o.isSaved && "fill-current")}
-                      />
+                      <Bookmark className={cn("h-4 w-4", outfit.isSaved && "fill-current")} />
                     </IconBtn>
                     <IconBtn
-                      onClick={() => toggleFavorite(o.id)}
+                      onClick={() => void toggleFavorite(outfit.id)}
                       label="Favorite"
-                      active={o.isFavorite}
+                      active={outfit.isFavorite}
                     >
-                      <Heart
-                        className={cn(
-                          "h-4 w-4",
-                          o.isFavorite && "fill-current",
-                        )}
-                      />
+                      <Heart className={cn("h-4 w-4", outfit.isFavorite && "fill-current")} />
                     </IconBtn>
-                    <IconBtn onClick={() => markWorn(o.id)} label="Mark worn">
+                    <IconBtn onClick={() => void markWorn(outfit.id)} label="Mark worn">
                       <CheckCircle2 className="h-4 w-4" />
                     </IconBtn>
                   </div>
                   <button
                     type="button"
-                    onClick={() => void explainOutfit(o.id)}
+                    onClick={() => void explainOutfit(outfit.id)}
                     disabled={explainingId !== null}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:cursor-wait disabled:opacity-60"
                   >
