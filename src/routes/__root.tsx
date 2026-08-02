@@ -76,22 +76,40 @@ function RootComponent() {
   const loadAll = useStore((s) => s.loadAll);
   const dataLoading = useStore((s) => s.loading);
   const profile = useStore((s) => s.profile);
+
   const isLoginRoute = location.pathname === "/login";
+  const isResetRoute = location.pathname === "/reset-password";
+  const isOnboardingRoute = location.pathname === "/onboarding";
+  const isPublicRoute = isLoginRoute || isResetRoute;
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user && !isLoginRoute) {
+
+    if (!user && !isPublicRoute) {
       void navigate({ to: "/login", replace: true });
-    } else if (user && isLoginRoute) {
+      return;
+    }
+
+    if (user && isLoginRoute) {
+      void navigate({ to: profile?.onboardingCompleted ? "/" : "/onboarding", replace: true });
+      return;
+    }
+
+    if (user && profile && !profile.onboardingCompleted && !isOnboardingRoute && !isResetRoute) {
+      void navigate({ to: "/onboarding", replace: true });
+      return;
+    }
+
+    if (user && profile?.onboardingCompleted && isOnboardingRoute) {
       void navigate({ to: "/", replace: true });
     }
-  }, [authLoading, user, isLoginRoute, navigate]);
+  }, [authLoading, user, profile, isPublicRoute, isLoginRoute, isResetRoute, isOnboardingRoute, navigate]);
 
   useEffect(() => {
     if (user && !profile && !dataLoading) void loadAll();
   }, [user, profile, dataLoading, loadAll]);
 
-  if (authLoading) {
+  if (authLoading || (user && !profile && !isResetRoute)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
         Loading ClosetIQ…
@@ -99,7 +117,7 @@ function RootComponent() {
     );
   }
 
-  if (isLoginRoute) return <Outlet />;
+  if (isPublicRoute || isOnboardingRoute) return <Outlet />;
   if (!user) return null;
 
   return (
