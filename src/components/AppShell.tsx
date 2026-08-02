@@ -20,6 +20,7 @@ import { Toaster } from "sonner";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { resolveAccountDisplayName } from "@/lib/accountDisplayName";
+import { DeleteAccountSection } from "@/components/DeleteAccountSection";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -130,7 +131,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 md:pb-12">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 md:pb-12">
+        {children}
+        {location.pathname === "/profile" && (
+          <div className="mt-6">
+            <DeleteAccountSection />
+          </div>
+        )}
+      </main>
 
       <Toaster richColors closeButton position="bottom-right" />
 
