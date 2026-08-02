@@ -271,23 +271,27 @@ function OutfitDetail() {
           </div>
 
           <div className="card-surface p-5">
-            <div className="flex items-center justify-between gap-3">
+            {!showExplanation ? (
+              <button
+                type="button"
+                onClick={handleExplain}
+                disabled={streaming}
+                className="flex w-full cursor-pointer items-center justify-between gap-3 text-left disabled:cursor-wait disabled:opacity-60"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="font-semibold">Why this works?</span>
+                </span>
+                <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  {streaming ? "Thinking…" : "Generate explanation"}
+                </span>
+              </button>
+            ) : (
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <h3 className="font-semibold">Why this works?</h3>
               </div>
-
-              {!showExplanation && (
-                <button
-                  type="button"
-                  onClick={handleExplain}
-                  disabled={streaming}
-                  className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
-                >
-                  {streaming ? "Thinking…" : "Generate explanation"}
-                </button>
-              )}
-            </div>
+            )}
 
             {error && (
               <p className="mt-3 text-sm text-destructive">{error}</p>
