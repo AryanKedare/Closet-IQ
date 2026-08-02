@@ -91,16 +91,9 @@ function OutfitDetail() {
       return;
     }
 
-    if (outfit?.aiExplanation) {
-      setStreamed(outfit.aiExplanation);
-      return;
-    }
-
     setStreaming(true);
     setError(null);
     setStreamed("");
-
-    let full = "";
 
     await streamExplanation({
       top,
@@ -108,17 +101,14 @@ function OutfitDetail() {
       shoes,
       jacket,
       profile,
-      onDelta: (c) => {
-        full += c;
-        setStreamed((prev) => prev + c);
-      },
-      onDone: async () => {
+      onDelta: (chunk) => setStreamed((current) => current + chunk),
+      onDone: async (explanation) => {
         setStreaming(false);
-        if (full && outfit) await setExplanation(outfit.id, full);
+        await setExplanation(outfit.id, explanation);
       },
-      onError: (e) => {
+      onError: (message) => {
         setStreaming(false);
-        setError(`Explanation failed: ${e}`);
+        setError(`Explanation failed: ${message}`);
       },
     });
   }
@@ -281,23 +271,23 @@ function OutfitDetail() {
           </div>
 
           <div className="card-surface p-5">
-            <button
-              type="button"
-              onClick={handleExplain}
-              disabled={streaming || Boolean(showExplanation)}
-              className="flex w-full items-center justify-between gap-3 text-left disabled:cursor-default disabled:opacity-100"
-            >
-              <span className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <span className="font-semibold">Why this works?</span>
-              </span>
+                <h3 className="font-semibold">Why this works?</h3>
+              </div>
 
               {!showExplanation && (
-                <span className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                <button
+                  type="button"
+                  onClick={handleExplain}
+                  disabled={streaming}
+                  className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
                   {streaming ? "Thinking…" : "Generate explanation"}
-                </span>
+                </button>
               )}
-            </button>
+            </div>
 
             {error && (
               <p className="mt-3 text-sm text-destructive">{error}</p>
@@ -313,14 +303,10 @@ function OutfitDetail() {
             ) : (
               !streaming &&
               !error && (
-                <button
-                  type="button"
-                  onClick={handleExplain}
-                  className="mt-3 w-full text-left text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Tap to get a tailored breakdown of color harmony, contrast, and
-                  how this combination reads against warm medium skin.
-                </button>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Generate a tailored breakdown of color harmony, contrast, and
+                  how this combination reads against your profile.
+                </p>
               )
             )}
           </div>
