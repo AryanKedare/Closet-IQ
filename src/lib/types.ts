@@ -48,6 +48,7 @@ export type UserProfile = {
   hairColorHex: string;
   skinToneType: string;
   stylePreferences: string[];
+  onboardingCompleted: boolean;
 };
 
 export type Outfit = {
