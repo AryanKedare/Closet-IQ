@@ -25,6 +25,13 @@ export async function generateAiOutfits(args: {
         eyeColorHex: args.profile.eyeColorHex,
         hairColorHex: args.profile.hairColorHex,
         skinToneType: args.profile.skinToneType,
+        skinTone: args.profile.skinTone ?? null,
+        skinUndertone: args.profile.skinUndertone ?? null,
+        hairColor: args.profile.hairColor ?? null,
+        eyeColor: args.profile.eyeColor ?? null,
+        contrastLevel: args.profile.contrastLevel ?? null,
+        recommendedPalette: args.profile.recommendedPalette ?? [],
+        bodyDetails: args.profile.bodyDetails ?? null,
         stylePreferences: args.profile.stylePreferences,
       },
       items: args.items.map((item) => ({
