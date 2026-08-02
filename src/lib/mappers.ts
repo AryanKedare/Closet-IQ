@@ -1,6 +1,5 @@
 import type { WardrobeItem, UserProfile, Outfit, OutfitHistory, Category, ColorFamily, Pattern } from "./types";
 
-// DB row -> app type (supports both Supabase row.id and Appwrite row.$id)
 export function mapWardrobeItem(row: any): WardrobeItem {
   return {
     id: row.$id ?? row.id,
@@ -28,11 +27,12 @@ export function mapProfile(row: any): UserProfile {
   return {
     id: row.$id ?? row.id,
     displayName: row.display_name,
-    skinToneHex: row.skin_tone_hex,
-    eyeColorHex: row.eye_color_hex,
-    hairColorHex: row.hair_color_hex,
-    skinToneType: row.skin_tone_type,
+    skinToneHex: row.skin_tone_hex ?? "",
+    eyeColorHex: row.eye_color_hex ?? "",
+    hairColorHex: row.hair_color_hex ?? "",
+    skinToneType: row.skin_tone_type ?? "custom",
     stylePreferences: row.style_preferences ?? [],
+    onboardingCompleted: row.onboarding_completed ?? false,
   };
 }
 
