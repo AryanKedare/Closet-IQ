@@ -21,12 +21,14 @@ function OutfitsPage() {
   const [filter, setFilter] = useState<string>("All");
   const [showSavedOnly, setShowSavedOnly] = useState(false);
 
-  const getItem = (id: string | null) => (id ? items.find((i) => i.id === id) ?? null : null);
+  const getItem = (id: string | null) =>
+    id ? items.find((i) => i.id === id) ?? null : null;
 
   const filtered = useMemo(() => {
     let list = outfits;
     if (showSavedOnly) list = list.filter((o) => o.isSaved);
-    if (filter !== "All") list = list.filter((o) => o.occasionTags.includes(filter));
+    if (filter !== "All")
+      list = list.filter((o) => o.occasionTags.includes(filter));
     return list;
   }, [outfits, filter, showSavedOnly]);
 
@@ -46,7 +48,7 @@ function OutfitsPage() {
               "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
               showSavedOnly
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:text-foreground"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
             <Bookmark className="h-4 w-4" />
@@ -69,10 +71,10 @@ function OutfitsPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors flex-shrink-0",
+              "flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
               filter === f
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:text-foreground"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
             {f === "All" ? f : f.replace("-", " ")}
@@ -138,14 +140,21 @@ function OutfitsPage() {
                       label="Save"
                       active={o.isSaved}
                     >
-                      <Bookmark className={cn("h-4 w-4", o.isSaved && "fill-current")} />
+                      <Bookmark
+                        className={cn("h-4 w-4", o.isSaved && "fill-current")}
+                      />
                     </IconBtn>
                     <IconBtn
                       onClick={() => toggleFavorite(o.id)}
                       label="Favorite"
                       active={o.isFavorite}
                     >
-                      <Heart className={cn("h-4 w-4", o.isFavorite && "fill-current")} />
+                      <Heart
+                        className={cn(
+                          "h-4 w-4",
+                          o.isFavorite && "fill-current",
+                        )}
+                      />
                     </IconBtn>
                     <IconBtn onClick={() => markWorn(o.id)} label="Mark worn">
                       <CheckCircle2 className="h-4 w-4" />
@@ -154,6 +163,7 @@ function OutfitsPage() {
                   <Link
                     to="/outfits/$outfitId"
                     params={{ outfitId: o.id }}
+                    search={{ explain: true }}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
                   >
                     <Info className="h-3.5 w-3.5" /> Why this works?
@@ -172,7 +182,9 @@ function Slot({ label, item }: { label: string; item: any }) {
   return (
     <div>
       <ItemImage item={item} />
-      <p className="mt-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <p className="line-clamp-1 text-xs font-medium">{item?.name ?? "—"}</p>
     </div>
   );
@@ -198,7 +210,7 @@ function IconBtn({
         "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
         active
           ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-card text-muted-foreground hover:text-foreground"
+          : "border-border bg-card text-muted-foreground hover:text-foreground",
       )}
     >
       {children}
