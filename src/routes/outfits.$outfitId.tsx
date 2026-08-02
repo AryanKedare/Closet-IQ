@@ -4,7 +4,15 @@ import { useStore } from "@/lib/store";
 import { ItemImage } from "@/components/ItemImage";
 import { ScoreDots } from "@/components/ScoreDots";
 import { ColorSwatch } from "@/components/ColorSwatch";
-import { ArrowLeft, CheckCircle2, Sparkles, Bookmark, Heart, Pencil, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Sparkles,
+  Bookmark,
+  Heart,
+  Pencil,
+  Check,
+} from "lucide-react";
 import { streamExplanation } from "@/lib/groqExplainer";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +21,10 @@ export const Route = createFileRoute("/outfits/$outfitId")({
   notFoundComponent: () => (
     <div className="card-surface mx-auto mt-12 max-w-md p-8 text-center">
       <p className="font-semibold">Outfit not found</p>
-      <Link to="/outfits" className="mt-4 inline-block text-sm text-primary hover:underline">
+      <Link
+        to="/outfits"
+        className="mt-4 inline-block text-sm text-primary hover:underline"
+      >
         ← Back to outfits
       </Link>
     </div>
@@ -45,34 +56,53 @@ function OutfitDetail() {
 
   if (!outfit) throw notFound();
 
-  const get = (id: string | null) => (id ? items.find((x) => x.id === id) ?? null : null);
+  const get = (id?: string | null) =>
+    id ? items.find((x) => x.id === id) ?? null : null;
+
   const top = get(outfit.topId);
   const bottom = get(outfit.bottomId);
   const shoes = get(outfit.shoesId);
   const jacket = get(outfit.jacketId);
 
-  const allItems = [top, bottom, shoes, jacket].filter(Boolean) as NonNullable<typeof top>[];
+  const allItems = [top, bottom, shoes, jacket].filter(
+    Boolean,
+  ) as NonNullable<typeof top>[];
 
   const similar = useMemo(() => {
     return outfits
       .filter(
         (o) =>
           o.id !== outfit.id &&
-          Math.abs(o.compatibilityScore - outfit.compatibilityScore) <= 8
+          Math.abs(o.compatibilityScore - outfit.compatibilityScore) <= 8,
       )
       .slice(0, 6);
   }, [outfits, outfit.id, outfit.compatibilityScore]);
 
   async function handleExplain() {
-    if (!profile || !top || !bottom || !shoes) return;
+    if (!profile || !top || !bottom || !shoes) {
+      setError("Missing outfit or profile data for explanation");
+      return;
+    }
+
     if (outfit?.aiExplanation) {
       setStreamed(outfit.aiExplanation);
       return;
     }
+
     setStreaming(true);
     setError(null);
     setStreamed("");
+
+    console.log("explain inputs", {
+      top,
+      bottom,
+      shoes,
+      jacket,
+      profile,
+    });
+
     let full = "";
+
     await streamExplanation({
       top,
       bottom,
@@ -89,7 +119,7 @@ function OutfitDetail() {
       },
       onError: (e) => {
         setStreaming(false);
-        setError(e);
+        setError(`Explanation failed: ${e}`);
       },
     });
   }
@@ -103,9 +133,10 @@ function OutfitDetail() {
           to="/outfits"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Outfits
+          <ArrowLeft className="h-4 w-4" />
+          Outfits
         </Link>
-        {/* Outfit name */}
+
         <div className="flex flex-1 items-center justify-center gap-1">
           {editingName ? (
             <form
@@ -120,14 +151,19 @@ function OutfitDetail() {
                 autoFocus
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="Name this outfit…"
+                placeholder="Name this outfit"
                 className="rounded border border-primary bg-card px-2 py-1 text-sm focus:outline-none"
               />
-              <button type="submit" className="text-primary"><Check className="h-4 w-4" /></button>
+              <button type="submit" className="text-primary">
+                <Check className="h-4 w-4" />
+              </button>
             </form>
           ) : (
             <button
-              onClick={() => { setNameInput(outfit.name ?? ""); setEditingName(true); }}
+              onClick={() => {
+                setNameInput(outfit.name ?? "");
+                setEditingName(true);
+              }}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <span className="font-medium">{outfit.name || "Name this outfit"}</span>
@@ -135,6 +171,7 @@ function OutfitDetail() {
             </button>
           )}
         </div>
+
         <div className="flex gap-1.5">
           <button
             onClick={() => toggleSaved(outfit.id)}
@@ -142,10 +179,12 @@ function OutfitDetail() {
               "flex h-9 w-9 items-center justify-center rounded-md border",
               outfit.isSaved
                 ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground"
+                : "border-border bg-card text-muted-foreground",
             )}
           >
-            <Bookmark className={cn("h-4 w-4", outfit.isSaved && "fill-current")} />
+            <Bookmark
+              className={cn("h-4 w-4", outfit.isSaved && "fill-current")}
+            />
           </button>
           <button
             onClick={() => toggleFavorite(outfit.id)}
@@ -153,32 +192,41 @@ function OutfitDetail() {
               "flex h-9 w-9 items-center justify-center rounded-md border",
               outfit.isFavorite
                 ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground"
+                : "border-border bg-card text-muted-foreground",
             )}
           >
-            <Heart className={cn("h-4 w-4", outfit.isFavorite && "fill-current")} />
+            <Heart
+              className={cn("h-4 w-4", outfit.isFavorite && "fill-current")}
+            />
           </button>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
-          {/* Items grid */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Slot label="Top" item={top} />
-            <Slot label="Bottom" item={bottom} />
-            <Slot label="Shoes" item={shoes} />
-            <Slot label="Jacket" item={jacket} />
+          <div>
+            <h2 className="mb-3 text-lg font-semibold tracking-tight">Items</h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <Slot label="Top" item={top} />
+              <Slot label="Bottom" item={bottom} />
+              <Slot label="Shoes" item={shoes} />
+              <Slot label="Jacket" item={jacket} />
+            </div>
           </div>
 
-          {/* Action row */}
           <div className="card-surface flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Compatibility</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Compatibility
+              </p>
               <div className="mt-1.5">
-                <ScoreDots score={outfit.compatibilityScore} className="text-base" />
+                <ScoreDots
+                  score={outfit.compatibilityScore}
+                  className="text-base"
+                />
               </div>
             </div>
+
             {!showRating ? (
               <button
                 onClick={async () => {
@@ -207,62 +255,78 @@ function OutfitDetail() {
                         }}
                         className={cn(
                           "text-2xl transition-transform hover:scale-110",
-                          wornRating && s <= wornRating ? "text-amber-400" : "text-muted-foreground/30"
+                          wornRating === s
+                            ? "text-amber-400"
+                            : "text-muted-foreground/30",
                         )}
-                      >★</button>
+                      >
+                        ★
+                      </button>
                     );
                   })}
                 </div>
-                {wornRating && (
-                  <p className="text-[11px] text-primary font-medium">
-                    {["", "Noted — we'll adjust future picks", "Nice one!", "Perfect — more like this"][wornRating]}
+                {wornRating ? (
+                  <p className="text-[11px] font-medium text-primary">
+                    {
+                      [
+                        "",
+                        "Noted — we'll adjust future picks",
+                        "Nice one!",
+                        "Perfect — more like this",
+                      ][wornRating]
+                    }
                   </p>
-                )}
+                ) : null}
               </div>
             )}
           </div>
 
-          {/* AI explanation */}
           <div className="card-surface p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold">Why this works</h3>
+                <h3 className="font-semibold">Why this works?</h3>
               </div>
+
               {!showExplanation && (
                 <button
                   onClick={handleExplain}
-                  disabled={streaming}
+                  disabled={streaming || !profile || !top || !bottom || !shoes}
                   className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
                 >
                   {streaming ? "Thinking…" : "Generate explanation"}
                 </button>
               )}
             </div>
+
             {error && (
               <p className="mt-3 text-sm text-destructive">{error}</p>
             )}
+
             {showExplanation ? (
               <p className="mt-3 text-sm leading-relaxed text-foreground/90">
                 {showExplanation}
-                {streaming && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-primary" />}
+                {streaming && (
+                  <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-primary" />
+                )}
               </p>
             ) : (
               !streaming &&
               !error && (
                 <p className="mt-3 text-sm text-muted-foreground">
-                  Tap to get a tailored breakdown of color harmony, contrast, and how this combination
-                  reads against warm medium skin.
+                  Tap to get a tailored breakdown of color harmony, contrast, and
+                  how this combination reads against warm medium skin.
                 </p>
               )
             )}
           </div>
         </div>
 
-        {/* Color wheel */}
         <aside className="space-y-4">
           <div className="card-surface p-5">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Color harmony</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Color harmony
+            </p>
             <div className="mt-4 flex justify-center">
               <ColorWheel hexes={allItems.map((i) => i.primaryColor)} />
             </div>
@@ -278,10 +342,11 @@ function OutfitDetail() {
         </aside>
       </div>
 
-      {/* Similar */}
       {similar.length > 0 && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold tracking-tight">Similar combinations</h2>
+          <h2 className="mb-3 text-lg font-semibold tracking-tight">
+            Similar combinations
+          </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
             {similar.map((o) => (
               <Link
@@ -291,11 +356,13 @@ function OutfitDetail() {
                 className="card-surface p-3"
               >
                 <div className="grid grid-cols-2 gap-1">
-                  {[get(o.topId), get(o.bottomId), get(o.shoesId), get(o.jacketId)].map((it, i) => (
-                    <div key={i} className="aspect-square">
-                      <ItemImage item={it} />
-                    </div>
-                  ))}
+                  {[get(o.topId), get(o.bottomId), get(o.shoesId), get(o.jacketId)].map(
+                    (it, i) => (
+                      <div key={i} className="aspect-square">
+                        <ItemImage item={it} />
+                      </div>
+                    ),
+                  )}
                 </div>
                 <div className="mt-2">
                   <ScoreDots score={o.compatibilityScore} />
@@ -313,12 +380,16 @@ function Slot({ label, item }: { label: string; item: any }) {
   return (
     <div>
       <ItemImage item={item} />
-      <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <p className="line-clamp-1 text-sm font-medium">{item?.name ?? "—"}</p>
       {item && (
         <div className="mt-1 flex items-center gap-1.5">
           <ColorSwatch hex={item.primaryColor} size={10} />
-          <span className="text-[10px] text-muted-foreground">{item.colorFamily}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {item.colorFamily}
+          </span>
         </div>
       )}
     </div>
@@ -328,16 +399,26 @@ function Slot({ label, item }: { label: string; item: any }) {
 function ColorWheel({ hexes }: { hexes: string[] }) {
   const list = hexes.filter(Boolean);
   if (list.length === 0) return null;
+
   const radius = 70;
   const cx = 90;
   const cy = 90;
+
   return (
-    <svg width={180} height={180} viewBox="0 0 180 180" className="block">
-      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="var(--color-border)" strokeWidth={1} />
+    <svg width="180" height="180" viewBox="0 0 180 180" className="block">
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke="var(--color-border)"
+        strokeWidth="1"
+      />
       {list.map((hex, i) => {
         const angle = (i / list.length) * 2 * Math.PI - Math.PI / 2;
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius;
+
         return (
           <g key={i}>
             <line
@@ -346,14 +427,27 @@ function ColorWheel({ hexes }: { hexes: string[] }) {
               x2={x}
               y2={y}
               stroke="var(--color-border)"
-              strokeWidth={1}
+              strokeWidth="1"
               strokeDasharray="2 3"
             />
-            <circle cx={x} cy={y} r={16} fill={hex} stroke="rgba(0,0,0,0.1)" strokeWidth={1} />
+            <circle
+              cx={x}
+              cy={y}
+              r="16"
+              fill={hex}
+              stroke="rgba(0,0,0,0.1)"
+              strokeWidth="1"
+            />
           </g>
         );
       })}
-      <circle cx={cx} cy={cy} r={6} fill="var(--color-card)" stroke="var(--color-border)" />
+      <circle
+        cx={cx}
+        cy={cy}
+        r="6"
+        fill="var(--color-card)"
+        stroke="var(--color-border)"
+      />
     </svg>
   );
 }
