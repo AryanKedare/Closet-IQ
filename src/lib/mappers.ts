@@ -43,7 +43,12 @@ export function mapProfile(row: any): UserProfile {
       bodyType: row.body_type ?? "",
       bodyProportions: row.body_proportions ?? "",
       shirtSize: row.shirt_size ?? "",
-      wristInches: row.wrist_inches == null ? "" : String(row.wrist_inches),
+      wristInches:
+        row.waist_inches == null
+          ? row.wrist_inches == null
+            ? ""
+            : String(row.wrist_inches)
+          : String(row.waist_inches),
       shoeSizeInches: row.shoe_size_inches == null ? "" : String(row.shoe_size_inches),
     },
   };
