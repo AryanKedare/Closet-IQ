@@ -3,6 +3,7 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { PersonalColorEditor } from "./PersonalColorEditor";
 import { supabase } from "@/integrations/supabase/client";
+import { parseBodyMeasurements } from "@/lib/bodyMeasurements";
 import { useStore } from "@/lib/store";
 import {
   eyeColorHex,
@@ -66,8 +67,13 @@ export function PersonalColorProfileSection() {
       return;
     }
 
+    const measurements = parseBodyMeasurements(bodyDetails);
+    if (measurements.error) {
+      toast.error(measurements.error);
+      return;
+    }
+
     const palette = generatePersonalPalette(answers);
-    const numericOrNull = (value: string) => value.trim() ? Number(value) : null;
     setSaving(true);
     try {
       const { error } = await supabase
@@ -86,8 +92,8 @@ export function PersonalColorProfileSection() {
           body_type: bodyDetails.bodyType.trim() || null,
           body_proportions: bodyDetails.bodyProportions.trim() || null,
           shirt_size: bodyDetails.shirtSize.trim() || null,
-          wrist_inches: numericOrNull(bodyDetails.wristInches),
-          shoe_size_inches: numericOrNull(bodyDetails.shoeSizeInches),
+          wrist_inches: measurements.wristInches,
+          shoe_size_inches: measurements.shoeSizeInches,
         })
         .eq("id", profile.id);
       if (error) throw error;
