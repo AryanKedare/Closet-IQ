@@ -1,10 +1,10 @@
 import type { BodyDetails } from "./personalColor";
 
-export const WRIST_INCHES_RANGE = { min: 3, max: 15 } as const;
+export const WAIST_INCHES_RANGE = { min: 18, max: 80 } as const;
 export const FOOT_INCHES_RANGE = { min: 5, max: 18 } as const;
 
 export type ParsedBodyMeasurements = {
-  wristInches: number | null;
+  waistInches: number | null;
   shoeSizeInches: number | null;
   error: string | null;
 };
@@ -27,7 +27,7 @@ function parseOptionalInches(
   if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
     return {
       value: null,
-      error: `${label} must be a number in inches, for example 6.8. Leave it blank to skip it.`,
+      error: `${label} must be a number in inches, for example 32. Leave it blank to skip it.`,
     };
   }
 
@@ -43,14 +43,18 @@ function parseOptionalInches(
 }
 
 export function parseBodyMeasurements(details: BodyDetails): ParsedBodyMeasurements {
-  const wrist = parseOptionalInches(
-    details.wristInches,
-    "Wrist circumference",
-    WRIST_INCHES_RANGE.min,
-    WRIST_INCHES_RANGE.max,
+  const waistRaw = "waistInches" in details
+    ? String((details as BodyDetails & { waistInches?: string }).waistInches ?? "")
+    : String((details as BodyDetails & { wristInches?: string }).wristInches ?? "");
+
+  const waist = parseOptionalInches(
+    waistRaw,
+    "Waist circumference",
+    WAIST_INCHES_RANGE.min,
+    WAIST_INCHES_RANGE.max,
   );
-  if (wrist.error) {
-    return { wristInches: null, shoeSizeInches: null, error: wrist.error };
+  if (waist.error) {
+    return { waistInches: null, shoeSizeInches: null, error: waist.error };
   }
 
   const foot = parseOptionalInches(
@@ -60,11 +64,11 @@ export function parseBodyMeasurements(details: BodyDetails): ParsedBodyMeasureme
     FOOT_INCHES_RANGE.max,
   );
   if (foot.error) {
-    return { wristInches: wrist.value, shoeSizeInches: null, error: foot.error };
+    return { waistInches: waist.value, shoeSizeInches: null, error: foot.error };
   }
 
   return {
-    wristInches: wrist.value,
+    waistInches: waist.value,
     shoeSizeInches: foot.value,
     error: null,
   };
