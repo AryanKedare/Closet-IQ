@@ -6,7 +6,7 @@ const base = {
   bodyType: "",
   bodyProportions: "",
   shirtSize: "",
-  wristInches: "",
+  waistInches: "",
   shoeSizeInches: "",
 };
 
@@ -22,7 +22,7 @@ test("accepts waist and foot measurements with inch suffixes", () => {
   assert.deepEqual(
     parseBodyMeasurements({
       ...base,
-      wristInches: "32,5 in",
+      waistInches: "32,5 in",
       shoeSizeInches: '10.5"',
     }),
     {
@@ -34,7 +34,7 @@ test("accepts waist and foot measurements with inch suffixes", () => {
 });
 
 test("rejects waist values outside the database constraint", () => {
-  const result = parseBodyMeasurements({ ...base, wristInches: "15" });
+  const result = parseBodyMeasurements({ ...base, waistInches: "15" });
   assert.equal(result.waistInches, null);
   assert.match(result.error ?? "", /between 18 and 80 inches/i);
 });
