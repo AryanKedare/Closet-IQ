@@ -31,7 +31,7 @@ create table if not exists public.user_profile (
   body_type text,
   body_proportions text,
   shirt_size text,
-  wrist_inches numeric(5,2),
+  waist_inches numeric(5,2),
   shoe_size_inches numeric(5,2),
 
   style_preferences text[] not null default array[]::text[],
@@ -79,8 +79,8 @@ create table if not exists public.user_profile (
         '#D7E7FA','#AEA3C2','#FFFBD8','#EFCFD0','#0A7D78'
       ]::text[]
     ),
-  constraint user_profile_wrist_inches_check
-    check (wrist_inches is null or wrist_inches between 3 and 15),
+  constraint user_profile_waist_inches_check
+    check (waist_inches is null or waist_inches between 18 and 80),
   constraint user_profile_shoe_size_inches_check
     check (shoe_size_inches is null or shoe_size_inches between 5 and 18)
 );
@@ -159,8 +159,24 @@ alter table public.user_profile
   add column if not exists body_type text,
   add column if not exists body_proportions text,
   add column if not exists shirt_size text,
-  add column if not exists wrist_inches numeric(5,2),
+  add column if not exists waist_inches numeric(5,2),
   add column if not exists shoe_size_inches numeric(5,2);
+
+-- Preserve values from the earlier mistaken wrist column when present.
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'user_profile'
+      and column_name = 'wrist_inches'
+  ) then
+    execute 'update public.user_profile set waist_inches = coalesce(waist_inches, wrist_inches)';
+    alter table public.user_profile drop column wrist_inches;
+  end if;
+end;
+$$;
 
 alter table public.wardrobe_items
   add column if not exists is_stored boolean not null default false;
@@ -253,13 +269,13 @@ begin
       );
   end if;
 
-  if not exists (
-    select 1 from pg_constraint where conname = 'user_profile_wrist_inches_check'
-  ) then
-    alter table public.user_profile
-      add constraint user_profile_wrist_inches_check
-      check (wrist_inches is null or wrist_inches between 3 and 15);
-  end if;
+  alter table public.user_profile
+    drop constraint if exists user_profile_wrist_inches_check,
+    drop constraint if exists user_profile_waist_inches_check;
+
+  alter table public.user_profile
+    add constraint user_profile_waist_inches_check
+    check (waist_inches is null or waist_inches between 18 and 80);
 
   if not exists (
     select 1 from pg_constraint where conname = 'user_profile_shoe_size_inches_check'
@@ -273,8 +289,8 @@ $$;
 
 comment on column public.user_profile.recommended_palette is
   'Ordered #RRGGBB palette generated from skin tone, undertone, hair, eyes, and contrast.';
-comment on column public.user_profile.wrist_inches is
-  'Optional wrist circumference in inches.';
+comment on column public.user_profile.waist_inches is
+  'Optional waist circumference in inches.';
 comment on column public.user_profile.shoe_size_inches is
   'Optional foot length or shoe measurement in inches.';
 
