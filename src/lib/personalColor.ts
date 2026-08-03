@@ -16,7 +16,7 @@ export type BodyDetails = {
   bodyType: string;
   bodyProportions: string;
   shirtSize: string;
-  wristInches: string;
+  waistInches: string;
   shoeSizeInches: string;
 };
 

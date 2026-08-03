@@ -6,37 +6,37 @@ const base = {
   bodyType: "",
   bodyProportions: "",
   shirtSize: "",
-  wristInches: "",
+  waistInches: "",
   shoeSizeInches: "",
 };
 
 test("blank optional measurements are stored as null", () => {
   assert.deepEqual(parseBodyMeasurements(base), {
-    wristInches: null,
+    waistInches: null,
     shoeSizeInches: null,
     error: null,
   });
 });
 
-test("accepts decimal commas and inch suffixes", () => {
+test("accepts waist and foot measurements with inch suffixes", () => {
   assert.deepEqual(
     parseBodyMeasurements({
       ...base,
-      wristInches: "6,8 in",
+      waistInches: "32,5 in",
       shoeSizeInches: '10.5"',
     }),
     {
-      wristInches: 6.8,
+      waistInches: 32.5,
       shoeSizeInches: 10.5,
       error: null,
     },
   );
 });
 
-test("rejects wrist values outside the database constraint", () => {
-  const result = parseBodyMeasurements({ ...base, wristInches: "2.5" });
-  assert.equal(result.wristInches, null);
-  assert.match(result.error ?? "", /between 3 and 15 inches/i);
+test("rejects waist values outside the database constraint", () => {
+  const result = parseBodyMeasurements({ ...base, waistInches: "15" });
+  assert.equal(result.waistInches, null);
+  assert.match(result.error ?? "", /between 18 and 80 inches/i);
 });
 
 test("rejects malformed optional measurements before Supabase", () => {

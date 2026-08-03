@@ -29,7 +29,7 @@ const EMPTY_BODY: BodyDetails = {
   bodyType: "",
   bodyProportions: "",
   shirtSize: "",
-  wristInches: "",
+  waistInches: "",
   shoeSizeInches: "",
 };
 
@@ -48,11 +48,17 @@ function OnboardingPage() {
         const draft = JSON.parse(stored) as {
           step?: number;
           answers?: PersonalColorAnswers;
-          bodyDetails?: BodyDetails;
+          bodyDetails?: Partial<BodyDetails> & { wristInches?: string };
         };
         setStep(Math.max(0, Math.min(5, draft.step ?? 0)));
         if (draft.answers) setAnswers({ ...EMPTY_ANSWERS, ...draft.answers });
-        if (draft.bodyDetails) setBodyDetails({ ...EMPTY_BODY, ...draft.bodyDetails });
+        if (draft.bodyDetails) {
+          setBodyDetails({
+            ...EMPTY_BODY,
+            ...draft.bodyDetails,
+            waistInches: draft.bodyDetails.waistInches ?? draft.bodyDetails.wristInches ?? "",
+          });
+        }
         return;
       }
     } catch {}
@@ -118,7 +124,7 @@ function OnboardingPage() {
         body_type: bodyDetails.bodyType.trim() || null,
         body_proportions: bodyDetails.bodyProportions.trim() || null,
         shirt_size: bodyDetails.shirtSize.trim() || null,
-        wrist_inches: measurements.wristInches,
+        waist_inches: measurements.waistInches,
         shoe_size_inches: measurements.shoeSizeInches,
         onboarding_completed: true,
       })

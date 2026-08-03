@@ -26,7 +26,7 @@ const EMPTY_BODY: BodyDetails = {
   bodyType: "",
   bodyProportions: "",
   shirtSize: "",
-  wristInches: "",
+  waistInches: "",
   shoeSizeInches: "",
 };
 
@@ -92,7 +92,7 @@ export function PersonalColorProfileSection() {
           body_type: bodyDetails.bodyType.trim() || null,
           body_proportions: bodyDetails.bodyProportions.trim() || null,
           shirt_size: bodyDetails.shirtSize.trim() || null,
-          wrist_inches: measurements.wristInches,
+          waist_inches: measurements.waistInches,
           shoe_size_inches: measurements.shoeSizeInches,
         })
         .eq("id", profile.id);
