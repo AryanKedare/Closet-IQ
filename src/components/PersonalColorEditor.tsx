@@ -67,9 +67,7 @@ export function PersonalColorEditor({
                         ? "scale-105 border-primary ring-4 ring-primary/20"
                         : "border-card ring-1 ring-border group-hover:scale-105",
                     )}
-                    style={{
-                      background: "hex" in option ? option.hex : undefined,
-                    }}
+                    style={{ background: "hex" in option ? option.hex : undefined }}
                   >
                     {selected && (
                       <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/15">
@@ -100,7 +98,7 @@ export function PersonalColorEditor({
             <TextField label="Body type" value={bodyDetails.bodyType} placeholder="e.g. rectangle, triangle, oval" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, bodyType: value })} />
             <TextField label="Body proportions" value={bodyDetails.bodyProportions} placeholder="e.g. longer torso, balanced, longer legs" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, bodyProportions: value })} />
             <TextField label="Shirt size" value={bodyDetails.shirtSize} placeholder="e.g. M, L, 40" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, shirtSize: value })} />
-            <TextField label="Wrist circumference (inches)" value={bodyDetails.wristInches} placeholder="e.g. 6.8" inputMode="decimal" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, wristInches: value })} />
+            <TextField label="Waist circumference (inches)" value={bodyDetails.wristInches} placeholder="e.g. 32" inputMode="decimal" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, wristInches: value })} />
             <TextField label="Foot length / shoe size (inches)" value={bodyDetails.shoeSizeInches} placeholder="e.g. 10.5" inputMode="decimal" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, shoeSizeInches: value })} />
           </div>
         </section>
