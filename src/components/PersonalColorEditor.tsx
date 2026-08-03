@@ -98,7 +98,7 @@ export function PersonalColorEditor({
             <TextField label="Body type" value={bodyDetails.bodyType} placeholder="e.g. rectangle, triangle, oval" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, bodyType: value })} />
             <TextField label="Body proportions" value={bodyDetails.bodyProportions} placeholder="e.g. longer torso, balanced, longer legs" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, bodyProportions: value })} />
             <TextField label="Shirt size" value={bodyDetails.shirtSize} placeholder="e.g. M, L, 40" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, shirtSize: value })} />
-            <TextField label="Waist circumference (inches)" value={bodyDetails.wristInches} placeholder="e.g. 32" inputMode="decimal" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, wristInches: value })} />
+            <TextField label="Waist circumference (inches)" value={bodyDetails.waistInches} placeholder="e.g. 32" inputMode="decimal" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, waistInches: value })} />
             <TextField label="Foot length / shoe size (inches)" value={bodyDetails.shoeSizeInches} placeholder="e.g. 10.5" inputMode="decimal" onChange={(value) => onBodyDetailsChange({ ...bodyDetails, shoeSizeInches: value })} />
           </div>
         </section>
