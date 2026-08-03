@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PersonalColorEditor } from "@/components/PersonalColorEditor";
+import { parseBodyMeasurements } from "@/lib/bodyMeasurements";
 import {
   eyeColorHex,
   generatePersonalPalette,
@@ -44,7 +45,11 @@ function OnboardingPage() {
     try {
       const stored = localStorage.getItem(DRAFT_KEY);
       if (stored) {
-        const draft = JSON.parse(stored) as { step?: number; answers?: PersonalColorAnswers; bodyDetails?: BodyDetails };
+        const draft = JSON.parse(stored) as {
+          step?: number;
+          answers?: PersonalColorAnswers;
+          bodyDetails?: BodyDetails;
+        };
         setStep(Math.max(0, Math.min(5, draft.step ?? 0)));
         if (draft.answers) setAnswers({ ...EMPTY_ANSWERS, ...draft.answers });
         if (draft.bodyDetails) setBodyDetails({ ...EMPTY_BODY, ...draft.bodyDetails });
@@ -71,7 +76,13 @@ function OnboardingPage() {
   }, [step, answers, bodyDetails]);
 
   const selectedForStep = useMemo(() => {
-    const keys: Array<keyof PersonalColorAnswers> = ["skinTone", "skinUndertone", "hairColor", "eyeColor", "contrastLevel"];
+    const keys: Array<keyof PersonalColorAnswers> = [
+      "skinTone",
+      "skinUndertone",
+      "hairColor",
+      "eyeColor",
+      "contrastLevel",
+    ];
     return step < 5 ? Boolean(answers[keys[step]]) : true;
   }, [answers, step]);
 
@@ -81,8 +92,13 @@ function OnboardingPage() {
       return;
     }
 
+    const measurements = parseBodyMeasurements(bodyDetails);
+    if (measurements.error) {
+      setError(measurements.error);
+      return;
+    }
+
     const palette = generatePersonalPalette(answers);
-    const numericOrNull = (value: string) => value.trim() ? Number(value) : null;
     setSaving(true);
     setError(null);
 
@@ -102,8 +118,8 @@ function OnboardingPage() {
         body_type: bodyDetails.bodyType.trim() || null,
         body_proportions: bodyDetails.bodyProportions.trim() || null,
         shirt_size: bodyDetails.shirtSize.trim() || null,
-        wrist_inches: numericOrNull(bodyDetails.wristInches),
-        shoe_size_inches: numericOrNull(bodyDetails.shoeSizeInches),
+        wrist_inches: measurements.wristInches,
+        shoe_size_inches: measurements.shoeSizeInches,
         onboarding_completed: true,
       })
       .eq("id", profile.id);
