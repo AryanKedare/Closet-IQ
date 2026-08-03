@@ -43,12 +43,8 @@ function parseOptionalInches(
 }
 
 export function parseBodyMeasurements(details: BodyDetails): ParsedBodyMeasurements {
-  const waistRaw = "waistInches" in details
-    ? String((details as BodyDetails & { waistInches?: string }).waistInches ?? "")
-    : String((details as BodyDetails & { wristInches?: string }).wristInches ?? "");
-
   const waist = parseOptionalInches(
-    waistRaw,
+    details.waistInches,
     "Waist circumference",
     WAIST_INCHES_RANGE.min,
     WAIST_INCHES_RANGE.max,
