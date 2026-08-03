@@ -26,7 +26,7 @@ const EMPTY_BODY: BodyDetails = {
   bodyType: "",
   bodyProportions: "",
   shirtSize: "",
-  wristInches: "",
+  waistInches: "",
   shoeSizeInches: "",
 };
 
