@@ -43,7 +43,7 @@ export function mapProfile(row: any): UserProfile {
       bodyType: row.body_type ?? "",
       bodyProportions: row.body_proportions ?? "",
       shirtSize: row.shirt_size ?? "",
-      wristInches:
+      waistInches:
         row.waist_inches == null
           ? row.wrist_inches == null
             ? ""
